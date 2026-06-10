@@ -1,0 +1,48 @@
+name: Build and deploy to Azure
+
+# Builds the Docker image in ACR and rolls it out to the Web App on every push
+# to main. Secrets (ANTHROPIC_API_KEY etc.) are NOT touched here — they live in
+# the Azure app settings, set once by deploy.sh or the portal.
+#
+# Required GitHub repo secrets (Settings -> Secrets and variables -> Actions):
+#   AZURE_CREDENTIALS  - output of:
+#       az ad sp create-for-rbac --name nbu-research-agent-ci \
+#         --role contributor \
+#         --scopes /subscriptions/<sub-id>/resourceGroups/<rg-name> \
+#         --sdk-auth
+#   AZURE_RESOURCE_GROUP - your resource group name
+#   ACR_NAME             - your container registry name (without .azurecr.io)
+#   APP_NAME             - the Web App name (e.g. nbu-research-agent)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build image in ACR (tagged with commit SHA)
+        run: |
+          az acr build \
+            --registry "${{ secrets.ACR_NAME }}" \
+            --image "${{ secrets.APP_NAME }}:${{ github.sha }}" \
+            .
+
+      - name: Roll out the new image
+        run: |
+          az webapp config container set \
+            --name "${{ secrets.APP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --docker-custom-image-name "${{ secrets.ACR_NAME }}.azurecr.io/${{ secrets.APP_NAME }}:${{ github.sha }}"
+          az webapp restart \
+            --name "${{ secrets.APP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}"
