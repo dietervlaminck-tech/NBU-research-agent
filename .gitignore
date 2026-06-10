@@ -6,3 +6,7 @@ data/
 .DS_Store
 exports_tmp/
 .deploy.env
+
+# CI workflow staged as .txt until the GitHub token has the `workflow` scope.
+# To enable: rename back to deploy.yml and push (or paste it via GitHub web editor).
+.github/workflows/deploy.yml
