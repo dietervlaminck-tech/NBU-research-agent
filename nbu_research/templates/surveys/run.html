@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}{{ study.title }}{% endblock %}
+{% block header %}{% endblock %}
+{% block body %}
+<div class="container" style="max-width:760px;">
+    <div class="page-title" style="text-align:center;">
+        <div class="accent-circle" style="margin:0 auto 12px;">N</div>
+        <h1>{{ study.title }}</h1>
+        <p>Nyenrode Business Universiteit &middot; Research Survey</p>
+    </div>
+
+    <div id="surveyArea">
+        <div class="card">
+            <p style="white-space:pre-wrap;">{{ study.config.welcome_text or 'Welcome! Thank you for taking part in this survey. Your answers are treated confidentially and used for academic research purposes only.' }}</p>
+            <p class="muted mt-8">Questions marked with <span style="color:var(--danger);">*</span> are required.</p>
+        </div>
+
+        <form id="surveyForm" novalidate>
+            {% for q in questions %}
+            {% set scale = q.scale or {'min': 1, 'max': 5, 'min_label': '', 'max_label': ''} %}
+            <div class="card question" data-qid="{{ q.id }}" data-qtype="{{ q.type }}"
+                 data-required="{{ 1 if q.required else 0 }}" data-rows="{{ q.rows | length if q.type == 'matrix' else 0 }}">
+                <p style="font-weight:600; margin-bottom:12px;">
+                    {{ loop.index }}. {{ q.text }}{% if q.required %} <span style="color:var(--danger);">*</span>{% endif %}
+                </p>
+
+                {% if q.type == 'likert' %}
+                <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                    {% if scale.min_label %}<span class="muted">{{ scale.min_label }}</span>{% endif %}
+                    {% for v in range(scale.min, scale.max + 1) %}
+                    <label style="display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; font-size:13px;">
+                        <input type="radio" name="{{ q.id }}" value="{{ v }}">
+                        <span>{{ v }}</span>
+                    </label>
+                    {% endfor %}
+                    {% if scale.max_label %}<span class="muted">{{ scale.max_label }}</span>{% endif %}
+                </div>
+
+                {% elif q.type == 'multiple_choice' %}
+                {% for opt in q.options %}
+                <label style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
+                    <input type="radio" name="{{ q.id }}" value="{{ opt }}"> <span>{{ opt }}</span>
+                </label>
+                {% endfor %}
+
+                {% elif q.type == 'checkbox' %}
+                {% for opt in q.options %}
+                <label style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
+                    <input type="checkbox" name="{{ q.id }}" value="{{ opt }}"> <span>{{ opt }}</span>
+                </label>
+                {% endfor %}
+
+                {% elif q.type == 'open' %}
+                <textarea name="{{ q.id }}" rows="4" placeholder="Your answer…"></textarea>
+
+                {% elif q.type == 'numeric' %}
+                <input type="number" name="{{ q.id }}" style="max-width:200px;"
+                       {% if q.scale %}min="{{ scale.min }}" max="{{ scale.max }}"{% endif %} placeholder="0">
+                {% if q.scale and (scale.min_label or scale.max_label) %}
+                <div class="muted mt-8">{{ scale.min }} = {{ scale.min_label }} &middot; {{ scale.max }} = {{ scale.max_label }}</div>
+                {% endif %}
+
+                {% elif q.type == 'dropdown' %}
+                <select name="{{ q.id }}" style="max-width:360px;">
+                    <option value="">— Select an option —</option>
+                    {% for opt in q.options %}
+                    <option value="{{ opt }}">{{ opt }}</option>
+                    {% endfor %}
+                </select>
+
+                {% elif q.type == 'matrix' %}
+                {% if scale.min_label or scale.max_label %}
+                <div class="muted mb-8">{{ scale.min }} = {{ scale.min_label }} &middot; {{ scale.max }} = {{ scale.max_label }}</div>
+                {% endif %}
+                <div style="overflow-x:auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                {% for v in range(scale.min, scale.max + 1) %}
+                                <th style="text-align:center;">{{ v }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in q.rows %}
+                            <tr>
+                                <td>{{ row }}</td>
+                                {% for v in range(scale.min, scale.max + 1) %}
+                                <td style="text-align:center;">
+                                    <input type="radio" name="{{ q.id }}::{{ row }}" value="{{ v }}" data-row="{{ row }}">
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                <div class="q-error" style="display:none; color:var(--danger); font-size:13px; margin-top:8px;">
+                    This question is required.
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="card" style="text-align:center;">
+                <div id="formError" style="display:none; color:var(--danger); margin-bottom:12px;"></div>
+                <button type="submit" class="btn btn-primary" id="submitBtn">Submit Survey</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="thankyou" class="success-box" style="display:none; text-align:center;">
+        <h2>Thank you!</h2>
+        <p style="white-space:pre-wrap;">{{ study.config.thankyou_text or 'Your response has been recorded. Thank you for contributing to this research.' }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STARTED_AT = new Date().toISOString();
+
+function collect(card) {
+    const type = card.dataset.qtype;
+    if (type === 'likert' || type === 'numeric') {
+        if (type === 'likert') {
+            const sel = card.querySelector('input:checked');
+            return sel ? Number(sel.value) : null;
+        }
+        const v = card.querySelector('input[type="number"]').value;
+        return v === '' ? null : Number(v);
+    }
+    if (type === 'multiple_choice') {
+        const sel = card.querySelector('input:checked');
+        return sel ? sel.value : null;
+    }
+    if (type === 'checkbox') {
+        const vals = [...card.querySelectorAll('input:checked')].map(i => i.value);
+        return vals.length ? vals : null;
+    }
+    if (type === 'open') {
+        const v = card.querySelector('textarea').value.trim();
+        return v || null;
+    }
+    if (type === 'dropdown') {
+        const v = card.querySelector('select').value;
+        return v || null;
+    }
+    if (type === 'matrix') {
+        const m = {};
+        card.querySelectorAll('input:checked').forEach(inp => {
+            m[inp.dataset.row] = Number(inp.value);
+        });
+        return Object.keys(m).length ? m : null;
+    }
+    return null;
+}
+
+document.getElementById('surveyForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const answers = {};
+    let firstInvalid = null;
+
+    document.querySelectorAll('.question').forEach(card => {
+        const value = collect(card);
+        const required = card.dataset.required === '1';
+        let invalid = required && value === null;
+        if (card.dataset.qtype === 'matrix' && required && value !== null) {
+            invalid = Object.keys(value).length < Number(card.dataset.rows);
+        }
+        card.querySelector('.q-error').style.display = invalid ? 'block' : 'none';
+        card.style.borderColor = invalid ? 'var(--danger)' : '';
+        if (invalid && !firstInvalid) firstInvalid = card;
+        if (value !== null) answers[card.dataset.qid] = value;
+    });
+
+    const formError = document.getElementById('formError');
+    if (firstInvalid) {
+        formError.textContent = 'Please answer all required questions.';
+        formError.style.display = 'block';
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    formError.style.display = 'none';
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+        const res = await fetch('{{ url_for("surveys.api_respond", study_id=study.id) }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: answers, started_at: STARTED_AT })
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            formError.textContent = (data.errors || ['Something went wrong. Please try again.']).join(' ');
+            formError.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Submit Survey';
+            return;
+        }
+        document.getElementById('surveyArea').style.display = 'none';
+        document.getElementById('thankyou').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+        formError.textContent = 'Could not submit your response. Please check your connection and try again.';
+        formError.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Submit Survey';
+    }
+});
+</script>
+{% endblock %}

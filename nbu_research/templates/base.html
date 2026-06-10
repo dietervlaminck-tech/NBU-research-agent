@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NBU Research Agent{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% block header %}
+    <header class="header">
+        <div class="container-wide header-inner">
+            <a href="/" class="logo">
+                <div class="logo-shield">N</div>
+                <div>
+                    <div class="logo-text">Research Agent</div>
+                    <div class="logo-sub">Nyenrode Business Universiteit</div>
+                </div>
+            </a>
+            <nav class="nav">
+                <a href="/" class="{% if request.path == '/' %}active{% endif %}">Projects</a>
+                <a href="/interviews/" class="{% if request.path.startswith('/interviews') %}active{% endif %}">Interviews</a>
+                <a href="/surveys/" class="{% if request.path.startswith('/surveys') %}active{% endif %}">Surveys</a>
+                <a href="/analysis/" class="{% if request.path.startswith('/analysis') %}active{% endif %}">Analysis</a>
+                <a href="/literature/" class="{% if request.path.startswith('/literature') %}active{% endif %}">Literature</a>
+                <a href="/writing/" class="{% if request.path.startswith('/writing') %}active{% endif %}">Writing</a>
+            </nav>
+        </div>
+    </header>
+    {% endblock %}
+    {% block body %}{% endblock %}
+    {% block footer %}
+    <div class="footer-bar">
+        <div class="container-wide">
+            <span class="payoff">Nyenrode. A Reward for Life</span>
+        </div>
+    </div>
+    {% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

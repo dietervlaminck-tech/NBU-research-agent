@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - {{ study.title }}{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title flex-between">
+        <div>
+            <h1>Survey Dashboard</h1>
+            <p>{{ study.title }}</p>
+        </div>
+        <div style="white-space:nowrap;">
+            <a href="{{ url_for('surveys.builder', study_id=study.id) }}" class="btn btn-secondary">Builder</a>
+            <a href="{{ url_for('surveys.created', study_id=study.id) }}" class="btn btn-secondary">Share</a>
+            <a href="/exports/study/{{ study.id }}" class="btn btn-primary">Export data</a>
+        </div>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="number">{{ responses | length }}</div>
+            <div class="label">Responses</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ completed_count }}</div>
+            <div class="label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ completion_rate }}%</div>
+            <div class="label">Completion rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ questions | length }}</div>
+            <div class="label">Questions</div>
+        </div>
+    </div>
+
+    <h3 class="section-title">Per-Question Summaries</h3>
+    {% if not questions %}
+    <div class="empty-state">
+        <h3>No questions yet</h3>
+        <p>Add questions in the <a href="{{ url_for('surveys.builder', study_id=study.id) }}">builder</a> first.</p>
+    </div>
+    {% endif %}
+    {% for s in summaries %}
+    {% set q = s.question %}
+    <div class="card">
+        <div class="flex-between mb-8">
+            <h3 style="text-transform:none; letter-spacing:normal;">{{ loop.index }}. {{ q.text }}</h3>
+            <span class="badge badge-active">{{ q.type | replace('_', ' ') }}</span>
+        </div>
+        <div class="meta">{{ s.answered }} of {{ completed_count }} respondents answered</div>
+
+        {% if q.type in ('likert', 'numeric') %}
+        <p><strong>Mean:</strong> {{ s.mean if s.mean is not none else '—' }}</p>
+        {% endif %}
+
+        {% if s.counts is defined %}
+        <table class="table mt-8">
+            <thead><tr><th>Option</th><th style="width:90px;">Count</th><th style="width:90px;">%</th></tr></thead>
+            <tbody>
+                {% for label, count in s.counts %}
+                <tr>
+                    <td>{{ label }}</td>
+                    <td>{{ count }}</td>
+                    <td>{{ ((100 * count / s.answered) | round(1)) if s.answered else 0 }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if q.type == 'matrix' %}
+        <table class="table mt-8">
+            <thead><tr><th>Item</th><th style="width:90px;">N</th><th style="width:90px;">Mean</th></tr></thead>
+            <tbody>
+                {% for row, stats in s.rows.items() %}
+                <tr>
+                    <td>{{ row }}</td>
+                    <td>{{ stats.n }}</td>
+                    <td>{{ stats.mean if stats.mean is not none else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if q.type == 'open' %}
+        {% if s.answers %}
+        <details>
+            <summary>{{ s.answers | length }} text answer{{ 's' if s.answers | length != 1 }}</summary>
+            <ul style="margin-left:20px;">
+                {% for a in s.answers %}
+                <li>{{ a }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% else %}
+        <p class="muted">No text answers yet.</p>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <h3 class="section-title">Responses</h3>
+    {% if response_rows %}
+    <div class="card" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    {% for q in questions %}
+                    <th title="{{ q.text }}">Q{{ loop.index }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in response_rows %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ (row.response.completed_at or row.response.started_at)[:16] | replace('T', ' ') }}</td>
+                    <td><span class="badge {% if row.response.status == 'completed' %}badge-completed{% else %}badge-pending{% endif %}">{{ row.response.status }}</span></td>
+                    {% for v in row.answer_values %}
+                    <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ v }}">{{ v }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No responses yet</h3>
+        <p>Distribute your survey from the <a href="{{ url_for('surveys.created', study_id=study.id) }}">share page</a>.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

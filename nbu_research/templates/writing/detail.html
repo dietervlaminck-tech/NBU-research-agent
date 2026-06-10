@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>{{ article.title }}</h1>
+        <p>{{ article.article_type.replace('_', ' ') }} article
+           {% if article.metadata.style_note %} &middot; {{ article.metadata.style_note }}{% endif %}</p>
+    </div>
+
+    <div class="card flex-between">
+        <div>
+            <span class="badge badge-{% if article.status in ('draft', 'revised') %}completed{% elif article.status == 'error' %}error{% elif article.status in ('generating', 'revising') %}active{% else %}pending{% endif %}">{{ article.status }}</span>
+            {% if project %}
+            <span class="muted">Project: <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">{{ project.title }}</a></span>
+            {% endif %}
+            <div class="meta">Updated {{ article.updated_at[:16].replace('T', ' ') }} UTC</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            {% if article.content_md %}
+            <a href="/exports/article/{{ article.id }}" class="btn btn-secondary btn-sm">Export</a>
+            {% endif %}
+            <button class="btn btn-secondary btn-sm" onclick="deleteArticle()">Delete</button>
+        </div>
+    </div>
+
+    {% if article.status in ('generating', 'revising') %}
+    <div class="card" id="jobCard">
+        <h3>{% if article.status == 'revising' %}Revision in progress{% else %}Draft generation in progress{% endif %}</h3>
+        <p class="muted" id="jobMessage">{{ job.message if job else 'Starting…' }}</p>
+        <div class="progress-track mt-16">
+            <div class="progress-fill" id="progressFill" style="width: {{ ((job.progress if job else 0) * 100) | round }}%;"></div>
+        </div>
+    </div>
+    {% elif article.status == 'error' %}
+    <div class="card">
+        <h3>Pipeline failed</h3>
+        <p class="muted">The writing pipeline hit an error. You can delete this article and start again, or submit revision instructions to retry from the current draft.</p>
+    </div>
+    {% endif %}
+
+    {% if outline_html %}
+    <details class="card">
+        <summary>Outline</summary>
+        <div class="markdown-body mt-16">{{ outline_html | safe }}</div>
+    </details>
+    {% endif %}
+
+    {% if review_html %}
+    <details class="card">
+        <summary>Peer review memo</summary>
+        <div class="markdown-body mt-16">{{ review_html | safe }}</div>
+    </details>
+    {% endif %}
+
+    {% if article.content_md %}
+    <div class="section-title">Draft</div>
+    <div class="card markdown-body">{{ content_html | safe }}</div>
+
+    {% if article.status not in ('generating', 'revising') %}
+    <div class="section-title">Revise</div>
+    <form action="{{ url_for('writing.revise_article', article_id=article.id) }}" method="POST" class="card">
+        <div class="form-group">
+            <label for="instructions">Revision Instructions</label>
+            <p class="hint">Tell the writer what to change. The current draft and the peer review memo are passed along automatically.</p>
+            <textarea id="instructions" name="instructions" rows="5" placeholder="e.g., Sharpen the contribution statement in the introduction, shorten the methods section, and address weakness #2 from the review memo." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Start Revision</button>
+    </form>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteArticle() {
+    if (!confirm("Delete this article?")) return;
+    fetch("{{ url_for('writing.api_delete_article', article_id=article.id) }}", {method: "DELETE"})
+        .then(function () { window.location = "{{ url_for('writing.index') }}"; });
+}
+</script>
+{% if article.status in ('generating', 'revising') and article.metadata.job_id %}
+<script>
+(function () {
+    var timer = setInterval(poll, 2500);
+    function poll() {
+        fetch("/api/jobs/{{ article.metadata.job_id }}").then(function (r) { return r.json(); }).then(function (job) {
+            var fill = document.getElementById("progressFill");
+            var msg = document.getElementById("jobMessage");
+            if (fill) fill.style.width = Math.round((job.progress || 0) * 100) + "%";
+            if (msg && job.message) msg.textContent = job.message;
+            if (job.status === "done" || job.status === "error") {
+                clearInterval(timer);
+                window.location.reload();
+            }
+        }).catch(function () {});
+    }
+    poll();
+})();
+</script>
+{% endif %}
+{% endblock %}

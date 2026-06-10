@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ project.title }} — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <h1 class="page-title">{{ project.title }}</h1>
+    {% if project.research_question %}<p class="muted">{{ project.research_question }}</p>{% endif %}
+
+    <div class="grid-3">
+        <div class="card">
+            <h3>Collect data</h3>
+            <p class="muted">AI interviews and surveys distributed to respondents.</p>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('interviews.index') }}?project={{ project.id }}">New interview study</a>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('surveys.index') }}?project={{ project.id }}">New survey</a>
+        </div>
+        <div class="card">
+            <h3>Literature research</h3>
+            <p class="muted">Web-grounded literature and desk research with sources.</p>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('literature.index') }}?project={{ project.id }}">New review</a>
+        </div>
+        <div class="card">
+            <h3>Write</h3>
+            <p class="muted">Generate article drafts from your data and sources.</p>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('writing.index') }}?project={{ project.id }}">New article</a>
+        </div>
+    </div>
+
+    <div class="section-title">Studies</div>
+    {% if studies %}
+    <table class="table">
+        <tr><th>Title</th><th>Type</th><th>Status</th><th>Created</th></tr>
+        {% for s in studies %}
+        <tr>
+            <td><a href="{{ url_for(s.study_type + 's.dashboard', study_id=s.id) }}">{{ s.title }}</a></td>
+            <td>{{ s.study_type }}</td>
+            <td><span class="badge badge-active">{{ s.status }}</span></td>
+            <td class="muted">{{ s.created_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}<div class="empty-state">No studies yet.</div>{% endif %}
+
+    <div class="section-title">Literature reviews</div>
+    {% if reviews %}
+    <table class="table">
+        <tr><th>Question</th><th>Status</th><th>Created</th></tr>
+        {% for r in reviews %}
+        <tr>
+            <td><a href="{{ url_for('literature.review_detail', review_id=r.id) }}">{{ r.research_question }}</a></td>
+            <td><span class="badge badge-{{ 'completed' if r.status == 'done' else 'pending' }}">{{ r.status }}</span></td>
+            <td class="muted">{{ r.created_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}<div class="empty-state">No literature reviews yet.</div>{% endif %}
+
+    <div class="section-title">Articles</div>
+    {% if articles %}
+    <table class="table">
+        <tr><th>Title</th><th>Type</th><th>Status</th><th>Updated</th></tr>
+        {% for a in articles %}
+        <tr>
+            <td><a href="{{ url_for('writing.article_detail', article_id=a.id) }}">{{ a.title }}</a></td>
+            <td>{{ a.article_type }}</td>
+            <td><span class="badge badge-active">{{ a.status }}</span></td>
+            <td class="muted">{{ a.updated_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}<div class="empty-state">No articles yet.</div>{% endif %}
+</div>
+{% endblock %}

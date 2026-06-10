@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Literature Review — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Literature Review</h1>
+        <p>{{ review.research_question }}</p>
+    </div>
+
+    <div class="card flex-between">
+        <div>
+            <span class="badge badge-{% if review.status == 'done' %}completed{% elif review.status == 'error' %}error{% elif review.status == 'running' %}active{% else %}pending{% endif %}">{{ review.status }}</span>
+            {% if project %}
+            <span class="muted">Project: <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">{{ project.title }}</a></span>
+            {% endif %}
+            <div class="muted">
+                {% if review.scope.discipline %}{{ review.scope.discipline }} &middot; {% endif %}
+                {% if review.scope.year_from or review.scope.year_to %}{{ review.scope.year_from or 'any' }}–{{ review.scope.year_to or 'present' }} &middot; {% endif %}
+                {{ review.scope.depth or 'standard' }} depth
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            {% if review.status == 'done' %}
+            <a href="/exports/review/{{ review.id }}" class="btn btn-secondary btn-sm">Export</a>
+            {% endif %}
+            <button class="btn btn-secondary btn-sm" onclick="deleteReview()">Delete</button>
+        </div>
+    </div>
+
+    {% if review.status in ('pending', 'running') %}
+    <div class="card" id="jobCard">
+        <h3>Review in progress</h3>
+        <p class="muted" id="jobMessage">{{ job.message if job else 'Starting…' }}</p>
+        <div class="progress-track mt-16">
+            <div class="progress-fill" id="progressFill" style="width: {{ ((job.progress if job else 0) * 100) | round }}%;"></div>
+        </div>
+    </div>
+    {% elif review.status == 'error' %}
+    <div class="card">
+        <h3>Pipeline failed</h3>
+        <p class="muted">The review pipeline hit an error. You can delete this review and start a new one.</p>
+    </div>
+    {% endif %}
+
+    {% if review.report_md %}
+    <div class="section-title">Report</div>
+    <div class="card markdown-body">{{ report_html | safe }}</div>
+    {% endif %}
+
+    {% if sources %}
+    <div class="section-title">Sources ({{ sources | length }})</div>
+    <div class="card" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr><th>Source</th><th>Year</th><th>Venue</th><th>Notes</th><th>Link</th></tr>
+            </thead>
+            <tbody>
+                {% for s in sources %}
+                <tr>
+                    <td><strong>{{ s.title }}</strong><div class="muted">{{ s.authors }}</div>
+                        {% if s.abstract %}<div class="muted">{{ s.abstract }}</div>{% endif %}</td>
+                    <td>{{ s.year }}</td>
+                    <td>{{ s.venue }}</td>
+                    <td class="muted">{{ s.notes }}</td>
+                    <td>
+                        {% if s.doi %}<a href="https://doi.org/{{ s.doi | replace('https://doi.org/', '') }}" target="_blank">DOI</a>
+                        {% elif s.url %}<a href="{{ s.url }}" target="_blank">URL</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteReview() {
+    if (!confirm("Delete this literature review and its sources?")) return;
+    fetch("{{ url_for('literature.api_delete_review', review_id=review.id) }}", {method: "DELETE"})
+        .then(function () { window.location = "{{ url_for('literature.index') }}"; });
+}
+</script>
+{% if review.status in ('pending', 'running') and review.scope.job_id %}
+<script>
+(function () {
+    var timer = setInterval(poll, 2500);
+    function poll() {
+        fetch("/api/jobs/{{ review.scope.job_id }}").then(function (r) { return r.json(); }).then(function (job) {
+            var fill = document.getElementById("progressFill");
+            var msg = document.getElementById("jobMessage");
+            if (fill) fill.style.width = Math.round((job.progress || 0) * 100) + "%";
+            if (msg && job.message) msg.textContent = job.message;
+            if (job.status === "done" || job.status === "error") {
+                clearInterval(timer);
+                window.location.reload();
+            }
+        }).catch(function () {});
+    }
+    poll();
+})();
+</script>
+{% endif %}
+{% endblock %}

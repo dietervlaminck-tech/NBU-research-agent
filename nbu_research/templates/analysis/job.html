@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Thematic analysis running — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Thematic analysis</h1>
+        <p>Coding transcripts and synthesizing themes — this can take a few minutes.</p>
+    </div>
+
+    <div class="card">
+        <div class="progress-track"><div class="progress-fill" id="job-fill" style="width: 2%;"></div></div>
+        <p class="mt-16" id="job-message">Starting…</p>
+        <p class="muted" id="job-error" style="display:none;"></p>
+        {% if study_id %}
+        <a class="btn btn-secondary mt-16" href="{{ url_for('analysis.study_hub', study_id=study_id) }}">Back to study</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+    var jobId = {{ job_id | tojson }};
+    var studyId = {{ study_id | tojson }};
+    var timer = setInterval(poll, 2000);
+
+    function poll() {
+        fetch("/api/jobs/" + jobId)
+            .then(function (r) { return r.json(); })
+            .then(function (job) {
+                if (job.error) { fail(job.error); return; }
+                document.getElementById("job-fill").style.width =
+                    Math.max(2, Math.round((job.progress || 0) * 100)) + "%";
+                document.getElementById("job-message").textContent = job.message || "Working…";
+                if (job.status === "done") {
+                    clearInterval(timer);
+                    var result = job.result || {};
+                    if (result.analysis_id) {
+                        window.location = "/analysis/result/" + result.analysis_id;
+                    } else if (studyId) {
+                        window.location = "/analysis/study/" + studyId;
+                    }
+                } else if (job.status === "error") {
+                    fail(job.message || "Analysis failed.");
+                }
+            })
+            .catch(function () { /* transient network error: keep polling */ });
+    }
+
+    function fail(msg) {
+        clearInterval(timer);
+        var el = document.getElementById("job-error");
+        el.style.display = "block";
+        el.textContent = msg;
+        document.getElementById("job-message").textContent = "Failed.";
+    }
+})();
+</script>
+{% endblock %}

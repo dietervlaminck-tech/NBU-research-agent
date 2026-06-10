@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nbu-research-agent",
+      "runtimeExecutable": "./venv/bin/python",
+      "runtimeArgs": ["app.py"],
+      "port": 5050
+    }
+  ]
+}

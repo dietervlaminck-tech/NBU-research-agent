@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Exports — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <h1>Exports</h1>
+    <p>Download studies, articles and literature reviews in formats for Excel, SPSS, Qualtrics, Atlas.ti / NVivo / MAXQDA, Word, LaTeX and reference managers.</p>
+
+    <div class="card">
+        <h2>Studies</h2>
+        {% if studies %}
+        <table class="table">
+            <thead><tr><th>Title</th><th>Type</th><th></th></tr></thead>
+            <tbody>
+            {% for s in studies %}
+            <tr>
+                <td>{{ s.title }}</td>
+                <td><span class="badge">{{ s.study_type }}</span></td>
+                <td><a class="btn btn-primary" href="{{ url_for('exports.formats', applies_to='study', obj_id=s.id) }}">Export options</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p>No studies yet.</p>{% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Articles</h2>
+        {% if articles %}
+        <table class="table">
+            <thead><tr><th>Title</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            {% for a in articles %}
+            <tr>
+                <td>{{ a.title }}</td>
+                <td><span class="badge">{{ a.status }}</span></td>
+                <td><a class="btn btn-primary" href="{{ url_for('exports.formats', applies_to='article', obj_id=a.id) }}">Export options</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p>No articles yet.</p>{% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Literature reviews</h2>
+        {% if reviews %}
+        <table class="table">
+            <thead><tr><th>Research question</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            {% for r in reviews %}
+            <tr>
+                <td>{{ r.research_question }}</td>
+                <td><span class="badge">{{ r.status }}</span></td>
+                <td><a class="btn btn-primary" href="{{ url_for('exports.formats', applies_to='review', obj_id=r.id) }}">Export options</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}<p>No literature reviews yet.</p>{% endif %}
+    </div>
+</div>
+{% endblock %}

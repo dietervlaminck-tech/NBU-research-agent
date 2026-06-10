@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Export — {{ obj_title }}{% endblock %}
+{% block body %}
+<div class="container">
+    <h1>Export: {{ obj_title }}</h1>
+    <p>
+        <span class="badge">{{ applies_to }}</span>
+        {% if obj.study_type %}<span class="badge">{{ obj.study_type }}</span>{% endif %}
+    </p>
+
+    <div class="card">
+        {% if formats %}
+        <table class="table">
+            <thead><tr><th>Format</th><th>Target tool</th><th></th></tr></thead>
+            <tbody>
+            {% for key, spec in formats %}
+            <tr>
+                <td>{{ spec.label }}</td>
+                <td><span class="badge">{{ spec.tool }}</span></td>
+                <td>
+                    <a class="btn btn-primary"
+                       href="{{ url_for('exports.download', applies_to=applies_to, obj_id=obj.id, format_key=key) }}">
+                        Download
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No export formats available for this item.</p>
+        {% endif %}
+    </div>
+
+    <p><a class="btn" href="{{ url_for('exports.index') }}">&larr; All exports</a></p>
+</div>
+{% endblock %}

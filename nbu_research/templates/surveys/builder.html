@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Builder - {{ study.title }}{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title flex-between">
+        <div>
+            <h1>Survey Builder</h1>
+            <p>{{ study.title }}</p>
+        </div>
+        <div style="white-space:nowrap;">
+            <a href="{{ url_for('surveys.created', study_id=study.id) }}" class="btn btn-secondary">Share</a>
+            <a href="{{ url_for('surveys.dashboard', study_id=study.id) }}" class="btn btn-secondary">Dashboard</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Survey Texts</h3>
+        <div class="form-group">
+            <label for="welcomeText">Welcome text</label>
+            <div class="hint">Shown to respondents above the questionnaire.</div>
+            <textarea id="welcomeText" rows="3">{{ study.config.welcome_text }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="thankyouText">Thank-you text</label>
+            <div class="hint">Shown after the respondent submits.</div>
+            <textarea id="thankyouText" rows="2">{{ study.config.thankyou_text }}</textarea>
+        </div>
+    </div>
+
+    <h3 class="section-title">Questions</h3>
+    <div id="questionList"></div>
+
+    <div class="card">
+        <div class="flex-between">
+            <div>
+                <select id="newType" style="width:auto; display:inline-block;">
+                    <option value="likert">Likert scale</option>
+                    <option value="multiple_choice">Multiple choice</option>
+                    <option value="checkbox">Checkboxes</option>
+                    <option value="open">Open text</option>
+                    <option value="numeric">Numeric</option>
+                    <option value="matrix">Matrix</option>
+                    <option value="dropdown">Dropdown</option>
+                </select>
+                <button class="btn btn-outline" onclick="addQuestion()">+ Add Question</button>
+            </div>
+            <div>
+                <span id="saveStatus" class="muted" style="margin-right:12px;"></span>
+                <button class="btn btn-primary" onclick="save()">Save Survey</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let questions = {{ study.config.questions | tojson }};
+
+const TYPE_LABELS = {
+    likert: 'Likert scale', multiple_choice: 'Multiple choice', checkbox: 'Checkboxes',
+    open: 'Open text', numeric: 'Numeric', matrix: 'Matrix', dropdown: 'Dropdown'
+};
+const CHOICE_TYPES = ['multiple_choice', 'checkbox', 'dropdown'];
+const SCALE_TYPES = ['likert', 'numeric', 'matrix'];
+
+function el(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') node.className = v;
+        else if (k === 'text') node.textContent = v;
+        else if (k === 'value') node.value = v;
+        else if (k === 'checked') node.checked = v;
+        else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v);
+    }
+    for (const c of children) node.appendChild(c);
+    return node;
+}
+
+function nextId() {
+    let max = 0;
+    for (const q of questions) {
+        const m = /^q(\d+)$/.exec(q.id || '');
+        if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return 'q' + (max + 1);
+}
+
+function defaults(type) {
+    const q = { id: nextId(), type: type, text: '', required: true };
+    applyTypeDefaults(q);
+    return q;
+}
+
+function applyTypeDefaults(q) {
+    if (CHOICE_TYPES.includes(q.type)) {
+        if (!Array.isArray(q.options)) q.options = ['Option 1', 'Option 2'];
+    } else {
+        delete q.options;
+    }
+    if (SCALE_TYPES.includes(q.type)) {
+        if (!q.scale) q.scale = { min: 1, max: 5, min_label: 'Strongly disagree', max_label: 'Strongly agree' };
+    } else {
+        delete q.scale;
+    }
+    if (q.type === 'matrix') {
+        if (!Array.isArray(q.rows)) q.rows = ['Item 1', 'Item 2'];
+    } else {
+        delete q.rows;
+    }
+}
+
+function addQuestion() {
+    questions.push(defaults(document.getElementById('newType').value));
+    render();
+    markDirty();
+}
+
+function removeQuestion(i) {
+    questions.splice(i, 1);
+    render();
+    markDirty();
+}
+
+function move(i, delta) {
+    const j = i + delta;
+    if (j < 0 || j >= questions.length) return;
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+    render();
+    markDirty();
+}
+
+function formGroup(labelText, control, hint) {
+    const children = [el('label', { text: labelText, style: 'text-transform:none;letter-spacing:normal;' })];
+    if (hint) children.push(el('div', { class: 'hint', text: hint }));
+    children.push(control);
+    return el('div', { class: 'form-group', style: 'margin-bottom:12px;' }, children);
+}
+
+function questionCard(q, i) {
+    const body = [];
+
+    // Header: number, type select, move/delete controls
+    const typeSelect = el('select', {
+        style: 'width:auto;',
+        onchange: e => { q.type = e.target.value; applyTypeDefaults(q); render(); markDirty(); }
+    }, Object.entries(TYPE_LABELS).map(([v, label]) =>
+        el('option', { value: v, text: label })));
+    typeSelect.value = q.type;
+
+    body.push(el('div', { class: 'flex-between mb-16' }, [
+        el('div', { style: 'display:flex;align-items:center;gap:12px;' }, [
+            el('strong', { text: 'Q' + (i + 1), style: 'color:var(--corporate-dark);' }),
+            typeSelect,
+            el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;' }, [
+                el('input', { type: 'checkbox', checked: q.required !== false,
+                    onchange: e => { q.required = e.target.checked; markDirty(); } }),
+                el('span', { text: 'Required' })
+            ])
+        ]),
+        el('div', {}, [
+            el('button', { class: 'btn btn-secondary btn-sm', text: '↑', title: 'Move up', onclick: () => move(i, -1) }),
+            el('button', { class: 'btn btn-secondary btn-sm', text: '↓', title: 'Move down', onclick: () => move(i, 1) }),
+            el('button', { class: 'btn btn-danger btn-sm', text: 'Delete', onclick: () => removeQuestion(i) })
+        ])
+    ]));
+
+    // Question text
+    body.push(formGroup('Question text', el('input', {
+        type: 'text', value: q.text || '', placeholder: 'Type your question…',
+        oninput: e => { q.text = e.target.value; markDirty(); }
+    })));
+
+    // Options (one per line)
+    if (CHOICE_TYPES.includes(q.type)) {
+        const ta = el('textarea', { rows: 4, style: 'min-height:80px;',
+            oninput: e => {
+                q.options = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                markDirty();
+            } });
+        ta.value = (q.options || []).join('\n');
+        body.push(formGroup('Options', ta, 'One option per line.'));
+    }
+
+    // Scale
+    if (SCALE_TYPES.includes(q.type)) {
+        const sc = q.scale;
+        const grid = el('div', { style: 'display:grid;grid-template-columns:90px 90px 1fr 1fr;gap:8px;' }, [
+            el('input', { type: 'number', value: sc.min, title: 'Min',
+                oninput: e => { sc.min = parseInt(e.target.value, 10) || 0; markDirty(); } }),
+            el('input', { type: 'number', value: sc.max, title: 'Max',
+                oninput: e => { sc.max = parseInt(e.target.value, 10) || 0; markDirty(); } }),
+            el('input', { type: 'text', value: sc.min_label || '', placeholder: 'Label for min',
+                oninput: e => { sc.min_label = e.target.value; markDirty(); } }),
+            el('input', { type: 'text', value: sc.max_label || '', placeholder: 'Label for max',
+                oninput: e => { sc.max_label = e.target.value; markDirty(); } })
+        ]);
+        body.push(formGroup('Scale (min, max, endpoint labels)', grid));
+    }
+
+    // Matrix rows
+    if (q.type === 'matrix') {
+        const ta = el('textarea', { rows: 4, style: 'min-height:80px;',
+            oninput: e => {
+                q.rows = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                markDirty();
+            } });
+        ta.value = (q.rows || []).join('\n');
+        body.push(formGroup('Matrix items', ta, 'One sub-item per line; each is rated on the scale above.'));
+    }
+
+    return el('div', { class: 'card' }, body);
+}
+
+function render() {
+    const list = document.getElementById('questionList');
+    list.innerHTML = '';
+    if (!questions.length) {
+        list.appendChild(el('div', { class: 'empty-state' }, [
+            el('h3', { text: 'No questions yet' }),
+            el('p', { text: 'Add your first question below.' })
+        ]));
+        return;
+    }
+    questions.forEach((q, i) => list.appendChild(questionCard(q, i)));
+}
+
+function markDirty() {
+    document.getElementById('saveStatus').textContent = 'Unsaved changes';
+}
+
+async function save() {
+    const status = document.getElementById('saveStatus');
+    status.textContent = 'Saving…';
+    const res = await fetch('{{ url_for("surveys.api_save_questions", study_id=study.id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            questions: questions,
+            welcome_text: document.getElementById('welcomeText').value,
+            thankyou_text: document.getElementById('thankyouText').value
+        })
+    });
+    if (res.ok) {
+        const data = await res.json();
+        questions = data.config.questions;
+        render();
+        status.textContent = 'Saved';
+        setTimeout(() => { if (status.textContent === 'Saved') status.textContent = ''; }, 2500);
+    } else {
+        status.textContent = 'Save failed';
+    }
+}
+
+document.getElementById('welcomeText').addEventListener('input', markDirty);
+document.getElementById('thankyouText').addEventListener('input', markDirty);
+render();
+</script>
+{% endblock %}

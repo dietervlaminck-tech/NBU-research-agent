@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Analyze: {{ study.title }} — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>{{ study.title }}</h1>
+        <p>
+            <span class="badge {% if study.study_type == 'survey' %}badge-active{% else %}badge-completed{% endif %}">{{ study.study_type }}</span>
+            {% if study.research_question %}&nbsp;{{ study.research_question }}{% endif %}
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="card" style="border-color: var(--danger);">
+        <span class="badge badge-error">Error</span>
+        <p class="mt-8">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if study.study_type == 'survey' %}
+    <p class="muted mb-16">{{ n_responses }} response(s) with answers available.</p>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>Descriptives</h3>
+            <p class="muted">Means, SDs and frequency tables for every variable.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}" class="mt-16">
+                <input type="hidden" name="kind" value="descriptives">
+                <button class="btn btn-primary" type="submit">Run descriptives</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Reliability</h3>
+            <p class="muted">Cronbach's alpha over a set of likert items.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}">
+                <input type="hidden" name="kind" value="reliability">
+                <div class="form-group">
+                    <label>Items (select 2+)</label>
+                    <select name="items" multiple size="6" required>
+                        {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Run reliability</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>t-test</h3>
+            <p class="muted">Independent samples, two groups.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}">
+                <input type="hidden" name="kind" value="ttest">
+                <div class="form-group">
+                    <label>Dependent variable</label>
+                    <select name="dv" required>
+                        {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Grouping variable</label>
+                    <select name="group_col" required>
+                        {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Run t-test</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>One-way ANOVA</h3>
+            <p class="muted">Compare a numeric DV across 2+ groups.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}">
+                <input type="hidden" name="kind" value="anova">
+                <div class="form-group">
+                    <label>Dependent variable</label>
+                    <select name="dv" required>
+                        {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Factor</label>
+                    <select name="factor" required>
+                        {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Run ANOVA</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Correlations</h3>
+            <p class="muted">Pearson correlation matrix with p-values.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}">
+                <input type="hidden" name="kind" value="correlation">
+                <div class="form-group">
+                    <label>Items (select 2+)</label>
+                    <select name="items" multiple size="6" required>
+                        {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Run correlations</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Regression (OLS)</h3>
+            <p class="muted">Linear regression via statsmodels.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}">
+                <input type="hidden" name="kind" value="regression">
+                <div class="form-group">
+                    <label>Dependent variable</label>
+                    <select name="dv" required>
+                        {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Predictors (select 1+)</label>
+                    <select name="ivs" multiple size="6" required>
+                        {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Run regression</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3>Crosstab (chi-square)</h3>
+            <p class="muted">Contingency table for two categorical variables.</p>
+            <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}">
+                <input type="hidden" name="kind" value="crosstab">
+                <div class="form-group">
+                    <label>Variable 1</label>
+                    <select name="var1" required>
+                        {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Variable 2</label>
+                    <select name="var2" required>
+                        {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Run crosstab</button>
+            </form>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="card">
+        <h3>Thematic analysis</h3>
+        <p class="muted">
+            Inductive open coding of all interview transcripts: generates a codebook,
+            codes every session, and synthesizes a thematic report. Runs in the
+            background (takes a few minutes).
+        </p>
+        <p class="mt-8">{{ n_sessions }} session(s) with content available.</p>
+        <form method="post" action="{{ url_for('analysis.run', study_id=study.id) }}" class="mt-16">
+            <input type="hidden" name="kind" value="thematic">
+            <button class="btn btn-primary" type="submit" {% if not n_sessions %}disabled{% endif %}>Run thematic analysis</button>
+        </form>
+    </div>
+
+    <div class="section-title">Codebooks</div>
+    {% if codebooks %}
+    <table class="table">
+        <thead><tr><th>Name</th><th>Codes</th><th>Created</th></tr></thead>
+        <tbody>
+        {% for cb in codebooks %}
+            <tr>
+                <td>{{ cb.name }}</td>
+                <td>{{ cb.codes | length }}</td>
+                <td>{{ cb.created_at[:19] }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No codebooks yet — run a thematic analysis to create one.</p>
+    {% endif %}
+    {% endif %}
+
+    <div class="section-title">Past analyses</div>
+    {% if analyses %}
+    <table class="table">
+        <thead><tr><th>Title</th><th>Kind</th><th>Status</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+        {% for a in analyses %}
+            <tr>
+                <td>{{ a.title }}</td>
+                <td><span class="badge badge-active">{{ a.kind }}</span></td>
+                <td><span class="badge {% if a.status == 'done' %}badge-completed{% elif a.status == 'error' %}badge-error{% else %}badge-pending{% endif %}">{{ a.status }}</span></td>
+                <td>{{ a.created_at[:19] }}</td>
+                <td><a class="btn btn-sm btn-outline" href="{{ url_for('analysis.result', analysis_id=a.id) }}">View</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No analyses for this study yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

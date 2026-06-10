@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Projects — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <h1 class="page-title">Research Projects</h1>
+
+    <div class="card">
+        <h2>New project</h2>
+        <form method="POST" action="{{ url_for('projects.create_project') }}">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="title" required placeholder="e.g. Hybrid work and team trust">
+            </div>
+            <div class="form-group">
+                <label>Research question</label>
+                <textarea name="research_question" rows="2" placeholder="What is the central research question?"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Create project</button>
+        </form>
+    </div>
+
+    {% if projects %}
+    <div class="section-title">Your projects</div>
+    {% for p in projects %}
+    <div class="card flex-between">
+        <div>
+            <strong><a href="{{ url_for('projects.project_detail', project_id=p.id) }}">{{ p.title }}</a></strong>
+            <div class="muted">{{ p.research_question or p.description }}</div>
+        </div>
+        <span class="badge badge-active">{{ p.status }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">No projects yet. A project bundles literature research, data collection, analysis, and article writing around one research question.</div>
+    {% endif %}
+</div>
+{% endblock %}

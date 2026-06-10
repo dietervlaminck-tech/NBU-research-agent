@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ analysis.title }} — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>{{ analysis.title }}</h1>
+        <p>
+            <span class="badge badge-active">{{ analysis.kind }}</span>
+            <span class="badge {% if analysis.status == 'done' %}badge-completed{% else %}badge-pending{% endif %}">{{ analysis.status }}</span>
+            {% if analysis.completed_at %}&nbsp;Completed {{ analysis.completed_at[:19] }}{% endif %}
+        </p>
+    </div>
+
+    {% if study %}
+    <p class="mb-16">
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('analysis.study_hub', study_id=study.id) }}">&larr; Back to study analysis</a>
+        {% if analysis.kind == 'thematic' %}
+        <a class="btn btn-sm btn-outline" href="/exports/study/{{ study.id }}">Export coded data for Atlas.ti</a>
+        {% endif %}
+    </p>
+    {% endif %}
+
+    {% if analysis.kind == 'thematic' %}
+        {% if results.code_counts %}
+        <div class="card">
+            <h3>Code frequencies</h3>
+            <p class="muted">{{ results.n_sessions }} session(s), {{ results.n_segments }} coded segment(s).</p>
+            <table class="table mt-16">
+                <thead><tr><th>Code</th><th>ID</th><th>Segments</th></tr></thead>
+                <tbody>
+                {% for c in results.code_counts %}
+                    <tr><td>{{ c.name }}</td><td class="muted">{{ c.code_id }}</td><td>{{ c.count }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        <div class="card">
+            <div class="markdown-body">{{ report_html | safe }}</div>
+        </div>
+    {% else %}
+        {% if analysis.params %}
+        <p class="muted mb-16">Parameters:
+            {% for k, v in analysis.params.items() %}{{ k }} = {{ v if v is not iterable or v is string else v | join(', ') }}{% if not loop.last %} · {% endif %}{% endfor %}
+        </p>
+        {% endif %}
+
+        {% for table in tables %}
+        <div class="card">
+            <h3>{{ table.title }}</h3>
+            {% if table.rows %}
+            <table class="table mt-16">
+                <thead><tr>{% for col in table.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                {% for row in table.rows %}
+                    <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="muted">No data.</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="card">
+            <h3>Interpretation</h3>
+            {% if results.interpretation %}
+            <p class="mt-8">{{ results.interpretation }}</p>
+            {% else %}
+            <p class="muted mt-8">No AI interpretation available (API key not configured when this analysis ran).</p>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

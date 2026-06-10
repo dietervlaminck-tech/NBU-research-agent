@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ study.title }} - Dashboard{% endblock %}
+{% block body %}
+<div class="container-wide">
+    <div class="page-title">
+        <div class="flex-between">
+            <div>
+                <h1>{{ study.title }}</h1>
+                <p>{{ study.research_question }}</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <a href="/exports/study/{{ study.id }}" class="btn btn-secondary btn-sm">Export data</a>
+                <button class="btn btn-danger btn-sm" onclick="deleteStudy()">Delete Study</button>
+            </div>
+        </div>
+    </div>
+
+    {% set completed = sessions|selectattr('status', 'equalto', 'completed')|list %}
+    {% set active = sessions|selectattr('status', 'equalto', 'active')|list %}
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="number">{{ sessions|length }}</div>
+            <div class="label">Total Sessions</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ completed|length }}</div>
+            <div class="label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">{{ active|length }}</div>
+            <div class="label">In Progress</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">
+                {% if completed %}
+                    {{ (completed|sum(attribute='duration_seconds') / completed|length / 60)|round(1) }}m
+                {% else %}
+                    --
+                {% endif %}
+            </div>
+            <div class="label">Avg Duration</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="flex-between mb-8">
+            <h3>Interview Link</h3>
+        </div>
+        <div class="link-box">
+            <input type="text" id="interviewUrl" value="{{ interview_url }}" readonly>
+            <button class="btn btn-primary btn-sm" onclick="copyLink()">Copy</button>
+        </div>
+    </div>
+
+    <h3 style="margin: 24px 0 16px;">Interview Sessions</h3>
+
+    {% if sessions %}
+    {% for session in sessions %}
+    <div class="card">
+        <div class="flex-between">
+            <div>
+                <strong>{{ session.respondent_name or 'Anonymous' }}</strong>
+                <span class="badge {% if session.status == 'completed' %}badge-completed{% else %}badge-active{% endif %}">
+                    {{ session.status }}
+                </span>
+                <div class="meta">
+                    Started {{ session.started_at[:16].replace('T', ' ') }} UTC
+                    &middot; {{ session.messages|length }} messages
+                    {% if session.duration_seconds %}
+                        &middot; {{ (session.duration_seconds / 60)|round(1) }} min
+                    {% endif %}
+                </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="toggleTranscript('t-{{ session.id }}', this)">Show Transcript</button>
+        </div>
+        <div class="transcript-box" id="t-{{ session.id }}">
+            {% for msg in session.messages %}
+<strong>{% if msg.role == 'assistant' %}Interviewer{% else %}Respondent{% endif %}:</strong>
+{{ msg.content }}
+
+{% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+        <h3>No interviews yet</h3>
+        <p>Share the interview link with respondents to start collecting data.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleTranscript(id, btn) {
+    const el = document.getElementById(id);
+    if (el.style.display === 'block') {
+        el.style.display = 'none';
+        btn.textContent = 'Show Transcript';
+    } else {
+        el.style.display = 'block';
+        btn.textContent = 'Hide Transcript';
+    }
+}
+
+function copyLink() {
+    const input = document.getElementById('interviewUrl');
+    input.select();
+    navigator.clipboard.writeText(input.value);
+    const btn = input.nextElementSibling;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+}
+
+async function deleteStudy() {
+    if (!confirm('Delete this study and all its interview data? This cannot be undone.')) return;
+    await fetch('/interviews/api/study/{{ study.id }}', { method: 'DELETE' });
+    window.location.href = "{{ url_for('interviews.index') }}";
+}
+</script>
+{% endblock %}

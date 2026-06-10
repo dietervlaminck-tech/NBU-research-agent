@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Surveys - NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Surveys</h1>
+        <p>Design, distribute and monitor native surveys.</p>
+    </div>
+
+    <div class="card">
+        <h3>New Survey</h3>
+        <form method="post" action="{{ url_for('surveys.create') }}" id="createForm">
+            {% if project_id %}
+            <input type="hidden" name="project_id" value="{{ project_id }}">
+            {% endif %}
+            <div class="form-group">
+                <label for="title">Title</label>
+                <input type="text" id="title" name="title" required placeholder="e.g. Employee Wellbeing Survey 2026">
+            </div>
+            <div class="form-group">
+                <label for="research_question">Research question</label>
+                <input type="text" id="research_question" name="research_question" placeholder="What do you want to find out?">
+            </div>
+            <div class="form-group">
+                <label for="design_brief">Design with AI (optional)</label>
+                <div class="hint">Describe your target population, the constructs you want to measure, and the preferred length. Claude will draft a full questionnaire as a survey methodologist. Leave empty to start from a blank survey.</div>
+                <textarea id="design_brief" name="design_brief" rows="4" placeholder="e.g. Mid-career professionals in Dutch SMEs; measure job satisfaction, psychological safety and turnover intention; max 15 questions."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="createBtn">Create Survey</button>
+        </form>
+    </div>
+
+    <h3 class="section-title">Your surveys</h3>
+    {% if studies %}
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Questions</th>
+                    <th>Responses</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in studies %}
+                <tr id="row-{{ s.id }}">
+                    <td>
+                        <strong>{{ s.title }}</strong>
+                        {% if s.research_question %}<div class="muted">{{ s.research_question }}</div>{% endif %}
+                    </td>
+                    <td><span class="badge {% if s.status == 'open' %}badge-active{% else %}badge-completed{% endif %}">{{ s.status }}</span></td>
+                    <td>{{ (s.config.questions if s.config and s.config.questions else []) | length }}</td>
+                    <td>{{ counts.get(s.id, 0) }}</td>
+                    <td>{{ s.created_at[:10] }}</td>
+                    <td style="white-space:nowrap;">
+                        <a href="{{ url_for('surveys.builder', study_id=s.id) }}" class="btn btn-secondary btn-sm">Builder</a>
+                        <a href="{{ url_for('surveys.created', study_id=s.id) }}" class="btn btn-secondary btn-sm">Share</a>
+                        <a href="{{ url_for('surveys.dashboard', study_id=s.id) }}" class="btn btn-secondary btn-sm">Dashboard</a>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSurvey('{{ s.id }}')">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No surveys yet</h3>
+        <p>Create your first survey above — blank, or designed by AI from a short brief.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('createForm').addEventListener('submit', function () {
+    const btn = document.getElementById('createBtn');
+    btn.disabled = true;
+    btn.textContent = document.getElementById('design_brief').value.trim()
+        ? 'Designing survey with AI…' : 'Creating…';
+});
+
+async function deleteSurvey(id) {
+    if (!confirm('Delete this survey and all its responses?')) return;
+    const res = await fetch('{{ url_for("surveys.index") }}api/study/' + id, { method: 'DELETE' });
+    if (res.ok) {
+        const row = document.getElementById('row-' + id);
+        if (row) row.remove();
+    } else {
+        alert('Could not delete survey.');
+    }
+}
+</script>
+{% endblock %}

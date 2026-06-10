@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Interviews — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>AI Interviewer</h1>
+        <p>Create AI-powered qualitative research interviews that adapt to your respondents</p>
+    </div>
+
+    {% if studies %}
+    <div class="section-title">Your interview studies</div>
+    {% for s in studies %}
+    <div class="card flex-between">
+        <div>
+            <strong><a href="{{ url_for('interviews.dashboard', study_id=s.id) }}">{{ s.title }}</a></strong>
+            <div class="muted">{{ s.research_question }}</div>
+            <div class="meta">Created {{ s.created_at[:16].replace('T', ' ') }} UTC</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span class="badge badge-active">{{ s.status }}</span>
+            <a href="{{ url_for('interviews.study_created', study_id=s.id) }}" class="btn btn-secondary btn-sm">Share</a>
+            <a href="{{ url_for('interviews.dashboard', study_id=s.id) }}" class="btn btn-secondary btn-sm">Dashboard</a>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form action="{{ url_for('interviews.create_study') }}" method="POST" id="studyForm">
+        <input type="hidden" name="project_id" value="{{ project_id }}">
+        <div class="card">
+            <h3>Study Details</h3>
+            <div class="form-group mt-16">
+                <label for="title">Study Title</label>
+                <input type="text" id="title" name="title" placeholder="e.g., Career Decision-Making in STEM" required>
+            </div>
+            <div class="form-group">
+                <label for="research_question">Research Question</label>
+                <p class="hint">The main question your study aims to answer. This guides the AI interviewer's focus.</p>
+                <textarea id="research_question" name="research_question" rows="3" placeholder="e.g., What factors influence undergraduate students' decisions to pursue or abandon STEM careers?" required></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Interview Script</h3>
+            <div class="form-group mt-16">
+                <label for="interview_outline">Interview Outline</label>
+                <p class="hint">Structure your interview with numbered questions or thematic sections. The AI will follow this script while adapting naturally to the respondent's answers.</p>
+                <textarea id="interview_outline" name="interview_outline" rows="12" placeholder="Part I: Background (approximately 5 questions)
+1. Can you tell me about your educational background?
+2. What drew you to your current field of study?
+3. Were there any pivotal moments that shaped your academic choices?
+
+Part II: Career Aspirations (approximately 5 questions)
+4. What career path are you currently considering?
+5. What excites you most about this path?
+..." required></textarea>
+            </div>
+        </div>
+
+        <details class="card">
+            <summary>Advanced Settings</summary>
+            <div class="form-group mt-16">
+                <label for="general_instructions">Custom Interviewer Instructions</label>
+                <p class="hint">Override the default interviewing guidelines. Leave empty to use best-practice defaults.</p>
+                <textarea id="general_instructions" name="general_instructions" rows="8" placeholder="Leave empty for defaults...">{{ default_instructions }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="model">AI Model</label>
+                <select id="model" name="model">
+                    {% for model_id, model_label in available_models %}
+                    <option value="{{ model_id }}" {% if model_id == default_model %}selected{% endif %}>{{ model_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </details>
+
+        <div class="mt-24" style="padding-bottom: 48px;">
+            <button type="submit" class="btn btn-primary">Create Interview &amp; Get Link</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
