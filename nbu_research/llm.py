@@ -49,8 +49,22 @@ def complete(system, prompt, model=DEFAULT_PIPELINE_MODEL, max_tokens=16000, thi
     return "".join(b.text for b in message.content if b.type == "text")
 
 
+def _strict_schema(node):
+    """The API requires additionalProperties: false on every object node."""
+    if isinstance(node, dict):
+        if node.get("type") == "object":
+            node.setdefault("additionalProperties", False)
+        for value in node.values():
+            _strict_schema(value)
+    elif isinstance(node, list):
+        for item in node:
+            _strict_schema(item)
+    return node
+
+
 def complete_json(system, prompt, schema, model=DEFAULT_PIPELINE_MODEL, max_tokens=16000):
     """Structured generation; returns a dict matching `schema` (JSON Schema)."""
+    schema = _strict_schema(schema)
     client = get_client()
     with client.messages.stream(
         model=model,
