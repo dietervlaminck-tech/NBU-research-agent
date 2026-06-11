@@ -89,10 +89,29 @@ CREATE TABLE IF NOT EXISTS coded_segments (
     created_at TEXT NOT NULL
 );
 
--- Analyses: qualitative (thematic) and quantitative (stats) runs.
+-- Datasets: first-class analyzable tabular data, from uploads or connectors
+-- (SEC EDGAR, Refinitiv). Stored as CSV text + a column spec so the analysis
+-- and export suites can target a dataset exactly like a survey.
+CREATE TABLE IF NOT EXISTS datasets (
+    id TEXT PRIMARY KEY,
+    project_id TEXT REFERENCES projects(id),
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'upload',   -- upload | edgar | refinitiv
+    source_meta TEXT NOT NULL DEFAULT '{}',
+    columns TEXT NOT NULL DEFAULT '[]',      -- [{"id","label","kind"}] kind=numeric|categorical
+    data_csv TEXT NOT NULL DEFAULT '',
+    n_rows INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'ready',
+    created_at TEXT NOT NULL
+);
+
+-- Analyses: qualitative (thematic) and quantitative (stats) runs. A run targets
+-- exactly one of study_id or dataset_id.
 CREATE TABLE IF NOT EXISTS analyses (
     id TEXT PRIMARY KEY,
     study_id TEXT REFERENCES studies(id),
+    dataset_id TEXT REFERENCES datasets(id),
     project_id TEXT REFERENCES projects(id),
     kind TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -163,8 +182,18 @@ CREATE TABLE IF NOT EXISTS jobs (
 def init_db():
     conn = get_db()
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()
     conn.close()
+    _column_cache.clear()
+
+
+def _migrate(conn):
+    """Additive migrations for databases created before a column existed.
+    CREATE TABLE IF NOT EXISTS never adds columns to an existing table."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(analyses)")}
+    if "dataset_id" not in cols:
+        conn.execute("ALTER TABLE analyses ADD COLUMN dataset_id TEXT")
 
 
 # --- generic row helpers -----------------------------------------------------
@@ -174,6 +203,7 @@ JSON_FIELDS = {
     "sessions": ["messages"],
     "survey_responses": ["answers"],
     "codebooks": ["codes"],
+    "datasets": ["columns", "source_meta"],
     "analyses": ["params", "results"],
     "literature_reviews": ["scope"],
     "articles": ["metadata"],

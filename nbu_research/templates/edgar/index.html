@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}SEC EDGAR — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>SEC EDGAR</h1>
+        <p>Pull free SEC company financials into an analyzable dataset, or analyze a filing with AI.</p>
+    </div>
+
+    <div class="card">
+        <p class="muted">
+            SEC EDGAR is the U.S. Securities and Exchange Commission's free, public
+            filing system. No license or API key is required — these are official
+            XBRL financial facts and filing documents straight from the SEC.
+            <a href="{{ url_for('edgar.filings') }}">Browse &amp; analyze filings &rarr;</a>
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <strong>{{ error }}</strong>
+    </div>
+    {% endif %}
+
+    <form action="{{ url_for('edgar.panel') }}" method="POST">
+        <div class="card">
+            <h3>Build a financial panel dataset</h3>
+            <p class="hint">Resolves each ticker to its SEC CIK, pulls the chosen annual (10-K) XBRL values, and assembles a company &times; year panel.</p>
+
+            <div class="form-group mt-16">
+                <label for="tickers">Tickers</label>
+                <p class="hint">One per line or comma-separated, e.g. <code>AAPL, MSFT, GOOGL</code>.</p>
+                <textarea id="tickers" name="tickers" rows="4" placeholder="AAPL&#10;MSFT&#10;GOOGL" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Financial concepts (XBRL us-gaap)</label>
+                <p class="hint">Each becomes a numeric column in the panel.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;">
+                    {% for concept, label in common_concepts %}
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+                        <input type="checkbox" name="concepts" value="{{ concept }}"
+                            {% if concept in default_concepts %}checked{% endif %}>
+                        {{ label }} <span class="muted">({{ concept }})</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group" style="display:flex;gap:12px;">
+                <div style="flex:1;">
+                    <label for="year_from">From fiscal year</label>
+                    <input type="number" id="year_from" name="year_from" min="1990" max="2100" placeholder="e.g., 2015">
+                </div>
+                <div style="flex:1;">
+                    <label for="year_to">To fiscal year</label>
+                    <input type="number" id="year_to" name="year_to" min="1990" max="2100" placeholder="e.g., 2024">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="name">Dataset name (optional)</label>
+                <input type="text" id="name" name="name" placeholder="Auto-generated from tickers if left blank">
+            </div>
+
+            <div class="form-group">
+                <label for="project_id">Project (optional)</label>
+                <select id="project_id" name="project_id">
+                    <option value="">— No project —</option>
+                    {% for p in projects %}
+                    <option value="{{ p.id }}" {% if p.id == project_id %}selected{% endif %}>{{ p.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mt-16">
+                <button type="submit" class="btn btn-primary">Build dataset</button>
+            </div>
+        </div>
+    </form>
+
+    {% if datasets %}
+    <div class="section-title">EDGAR datasets</div>
+    {% for d in datasets %}
+    <div class="card flex-between">
+        <div>
+            <strong><a href="{{ url_for('datasets.detail', dataset_id=d.id) }}">{{ d.name }}</a></strong>
+            <div class="muted">{{ d.n_rows }} rows &middot; {{ d.description }}</div>
+            <div class="meta">Created {{ d.created_at[:16].replace('T', ' ') }} UTC</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <span class="badge badge-completed">edgar</span>
+            <a href="{{ url_for('datasets.detail', dataset_id=d.id) }}" class="btn btn-secondary btn-sm">Open</a>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}

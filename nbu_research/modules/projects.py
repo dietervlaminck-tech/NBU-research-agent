@@ -30,12 +30,13 @@ def project_detail(project_id):
     if not project:
         return "Project not found", 404
     studies = db.query("studies", "project_id = ?", (project_id,))
+    datasets = db.query("datasets", "project_id = ?", (project_id,))
     reviews = db.query("literature_reviews", "project_id = ?", (project_id,))
     articles = db.query("articles", "project_id = ?", (project_id,))
     analyses = db.query("analyses", "project_id = ?", (project_id,))
     return render_template(
         "projects/detail.html",
-        project=project, studies=studies, reviews=reviews,
+        project=project, studies=studies, datasets=datasets, reviews=reviews,
         articles=articles, analyses=analyses,
     )
 

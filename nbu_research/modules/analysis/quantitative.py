@@ -26,13 +26,22 @@ def _slug(text):
     return s or "x"
 
 
-def dataframe_columns(study):
-    """Flattened column spec for a survey study.
+def is_dataset(target):
+    """Analysis targets are polymorphic: a study row always carries
+    `study_type`; a dataset row never does. This lets the dataframe builders
+    serve both without touching the individual stat functions."""
+    return "study_type" not in target
 
-    Returns a list of {"id", "label", "kind"} where kind is
-    "numeric" or "categorical". Matrix questions become one numeric column per
-    row (qid_row); checkbox questions one 0/1 numeric column per option.
+
+def dataframe_columns(target):
+    """Flattened column spec: list of {"id", "label", "kind"} (numeric|categorical).
+
+    For a survey study, derived from the questions. For a dataset, the stored
+    column spec is returned verbatim.
     """
+    if is_dataset(target):
+        return target.get("columns") or []
+    study = target
     cols = []
     for q in study.get("config", {}).get("questions", []):
         qid, qtype, qtext = q.get("id"), q.get("type"), q.get("text", "")
@@ -64,13 +73,34 @@ def _to_float(value):
         return np.nan
 
 
-def responses_dataframe(study):
-    """One row per response, columns per dataframe_columns(study).
+def _dataset_dataframe(dataset):
+    """Read a dataset's stored CSV into a DataFrame, coercing numeric columns
+    per its column spec so the stat functions see the same dtypes as surveys."""
+    import io
+    text = dataset.get("data_csv") or ""
+    cols = dataset.get("columns") or []
+    if not text.strip():
+        return pd.DataFrame(columns=[c["id"] for c in cols])
+    df = pd.read_csv(io.StringIO(text))
+    for c in cols:
+        if c.get("kind") == "numeric" and c["id"] in df.columns:
+            df[c["id"]] = pd.to_numeric(df[c["id"]], errors="coerce")
+        elif c["id"] in df.columns:
+            df[c["id"]] = df[c["id"]].where(df[c["id"]].notna(), None)
+    keep = [c["id"] for c in cols if c["id"] in df.columns]
+    return df[keep] if keep else df
 
-    likert/numeric/matrix cells -> float (NaN when missing); checkbox option
-    columns -> 0.0/1.0 (NaN when the question was skipped); choice/open -> str
-    (None when missing).
+
+def responses_dataframe(target):
+    """One analysis-ready DataFrame (rows = observations, columns per
+    dataframe_columns). Serves surveys and datasets alike.
+
+    Survey cells: likert/numeric/matrix -> float (NaN when missing); checkbox
+    option columns -> 0.0/1.0 (NaN when skipped); choice/open -> str.
     """
+    if is_dataset(target):
+        return _dataset_dataframe(target)
+    study = target
     questions = study.get("config", {}).get("questions", [])
     responses = [r for r in db.query("survey_responses", "study_id = ?",
                                      (study["id"],), order="started_at ASC")
@@ -345,7 +375,12 @@ ANALYSIS_KINDS = {
 
 # --- Interpretation + persistence ----------------------------------------------
 
-def _interpret(kind, study, results):
+def target_title(target):
+    """Display name of a study or dataset analysis target."""
+    return target.get("title") or target.get("name") or target.get("id", "")
+
+
+def _interpret(kind, target, results):
     """Short APA-style interpretation via the LLM; None when unavailable."""
     try:
         system = (
@@ -356,10 +391,11 @@ def _interpret(kind, study, results):
             "the finding to the research question when one is given. Plain prose, "
             "no headings, no bullet points."
         )
+        context = target.get("research_question") or target.get("description") or "(not specified)"
         prompt = (
             f"Analysis kind: {ANALYSIS_KINDS[kind][1]}\n"
-            f"Study: {study.get('title', '')}\n"
-            f"Research question: {study.get('research_question', '') or '(not specified)'}\n\n"
+            f"Data source: {target_title(target)}\n"
+            f"Research question / context: {context}\n\n"
             f"Results (JSON):\n{json.dumps(results, indent=2)}"
         )
         return llm.complete(system, prompt, model=DEFAULT_PIPELINE_MODEL, max_tokens=1500)
@@ -367,21 +403,23 @@ def _interpret(kind, study, results):
         return None
 
 
-def run_analysis(study, kind, params):
-    """Run one quantitative analysis synchronously and persist it.
+def run_analysis(target, kind, params):
+    """Run one quantitative analysis synchronously and persist it. `target` is a
+    survey study row or a dataset row.
 
     Returns the new analyses row id. Raises ValueError for bad params.
     """
     if kind not in ANALYSIS_KINDS:
         raise ValueError(f"Unknown analysis kind: {kind}")
     fn, label = ANALYSIS_KINDS[kind]
-    results = fn(study, params)
-    results["interpretation"] = _interpret(kind, study, results)
+    results = fn(target, params)
+    results["interpretation"] = _interpret(kind, target, results)
+    ref = {"dataset_id": target["id"]} if is_dataset(target) else {"study_id": target["id"]}
     return db.insert("analyses", {
+        **ref,
         "kind": kind,
-        "study_id": study["id"],
-        "project_id": study.get("project_id"),
-        "title": f"{label} — {study.get('title', study['id'])}",
+        "project_id": target.get("project_id"),
+        "title": f"{label} — {target_title(target)}",
         "params": params,
         "results": results,
         "status": "done",

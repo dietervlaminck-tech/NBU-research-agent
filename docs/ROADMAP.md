@@ -5,9 +5,11 @@
 - [x] **Phase 1 (June 11):** Stata (.dta), R (.rds), Jupyter notebook exports;
   per-analysis replication packages (data + .do/.R/.py scripts + codebook +
   README) for OSF/journal data policies
-- [ ] **Phase 2 (start June 12):** dataset upload module (CSV/XLSX/SAV/DTA as
-  first-class analyzable datasets) + SEC EDGAR connector (filings index,
-  full-text search, XBRL company facts → panel datasets + AI filing analysis)
+- [x] **Phase 2 (June 11, ahead of schedule):** dataset upload module
+  (CSV/XLSX/SAV/DTA → typed, analyzable datasets) + SEC EDGAR connector (XBRL
+  financial-panel builder by ticker + AI filing analysis). Analysis & all
+  exports (incl. replication packages) now run on datasets, not just surveys.
+  Verified live: a 5-firm / 7-year EDGAR panel regressed end-to-end.
 - [ ] **Phase 3 (start ~June 16, needs LSEG credentials):** Refinitiv
   connector — see [REFINITIV_DESIGN.md](REFINITIV_DESIGN.md)
 - [ ] **Phase 4 (June 19–21):** integration testing, deploy, buffer

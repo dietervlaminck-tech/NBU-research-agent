@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>{{ article.title }}</h1>
+        <p class="muted">AI analysis of an SEC filing</p>
+    </div>
+
+    <div class="card flex-between">
+        <div>
+            <div class="muted">
+                {% if meta.form_type %}<span class="badge">{{ meta.form_type }}</span>{% endif %}
+                {% if meta.company %}{{ meta.company }}{% endif %}
+                {% if meta.ticker %}({{ meta.ticker }}){% endif %}
+                {% if meta.filing_date %}&middot; filed {{ meta.filing_date }}{% endif %}
+            </div>
+        </div>
+        {% if meta.filing_url %}
+        <a href="{{ meta.filing_url }}" target="_blank" class="btn btn-secondary btn-sm">View filing</a>
+        {% endif %}
+    </div>
+
+    <div class="card markdown-body">{{ analysis_html | safe }}</div>
+
+    <div class="mt-16">
+        <a href="{{ url_for('edgar.filings') }}" class="muted">&larr; Back to filings</a>
+    </div>
+</div>
+{% endblock %}

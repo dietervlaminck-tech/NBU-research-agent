@@ -13,6 +13,12 @@
             <a class="btn btn-secondary btn-sm" href="{{ url_for('surveys.index') }}?project={{ project.id }}">New survey</a>
         </div>
         <div class="card">
+            <h3>Datasets</h3>
+            <p class="muted">Upload data (CSV/Excel/SPSS/Stata) or pull from SEC EDGAR.</p>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('datasets.index') }}?project={{ project.id }}">Upload data</a>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('edgar.index') }}?project={{ project.id }}">SEC EDGAR</a>
+        </div>
+        <div class="card">
             <h3>Literature research</h3>
             <p class="muted">Web-grounded literature and desk research with sources.</p>
             <a class="btn btn-primary btn-sm" href="{{ url_for('literature.index') }}?project={{ project.id }}">New review</a>
@@ -38,6 +44,21 @@
         {% endfor %}
     </table>
     {% else %}<div class="empty-state">No studies yet.</div>{% endif %}
+
+    <div class="section-title">Datasets</div>
+    {% if datasets %}
+    <table class="table">
+        <tr><th>Name</th><th>Source</th><th>Rows</th><th>Created</th></tr>
+        {% for d in datasets %}
+        <tr>
+            <td><a href="/datasets/{{ d.id }}">{{ d.name }}</a></td>
+            <td><span class="badge badge-pending">{{ d.source }}</span></td>
+            <td class="muted">{{ d.n_rows }}</td>
+            <td class="muted">{{ d.created_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}<div class="empty-state">No datasets yet.</div>{% endif %}
 
     <div class="section-title">Literature reviews</div>
     {% if reviews %}

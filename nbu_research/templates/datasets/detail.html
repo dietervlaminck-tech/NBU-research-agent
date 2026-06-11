@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ dataset.name }} - Datasets{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>{{ dataset.name }}</h1>
+        {% if dataset.description %}<p>{{ dataset.description }}</p>{% endif %}
+    </div>
+
+    <div class="card">
+        <table class="table">
+            <tbody>
+                <tr><th>Source</th><td><span class="badge">{{ dataset.source }}</span></td></tr>
+                <tr><th>Rows</th><td>{{ dataset.n_rows }}</td></tr>
+                <tr><th>Columns</th><td>{{ dataset.n_columns }}</td></tr>
+                <tr><th>Project</th><td>{{ dataset.project_title or '—' }}</td></tr>
+                <tr><th>Created</th><td>{{ dataset.created_at[:19] }}</td></tr>
+                {% if dataset.source_meta and dataset.source_meta.filename %}
+                <tr><th>File</th><td class="muted">{{ dataset.source_meta.filename }}</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        <div style="margin-top:1rem; white-space:nowrap;">
+            <a href="/analysis/dataset/{{ dataset.id }}" class="btn btn-primary">Analyze this dataset</a>
+            <a href="{{ url_for('datasets.download_csv', dataset_id=dataset.id) }}" class="btn btn-secondary">Download CSV</a>
+            <form method="post" action="{{ url_for('datasets.delete_form', dataset_id=dataset.id) }}"
+                  style="display:inline;" onsubmit="return confirm('Delete this dataset and its analyses?');">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <h3 class="section-title">Column spec</h3>
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr><th>Id</th><th>Label</th><th>Kind</th></tr>
+            </thead>
+            <tbody>
+                {% for c in dataset.columns %}
+                <tr>
+                    <td><code>{{ c.id }}</code></td>
+                    <td>{{ c.label }}</td>
+                    <td><span class="badge">{{ c.kind }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="section-title">Preview <span class="muted">(first {{ rows | length }} rows)</span></h3>
+    {% if rows %}
+    <div class="card" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr>{% for cid in column_ids %}<th>{{ cid }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>{% for cid in column_ids %}<td>{{ row[cid] }}</td>{% endfor %}</tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>This dataset has no rows.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

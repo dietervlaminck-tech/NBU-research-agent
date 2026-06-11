@@ -11,16 +11,14 @@
         </p>
     </div>
 
-    {% if study %}
     <p class="mb-16">
-        <a class="btn btn-sm btn-secondary" href="{{ url_for('analysis.study_hub', study_id=study.id) }}">&larr; Back to study analysis</a>
-        {% if analysis.kind == 'thematic' %}
+        <a class="btn btn-sm btn-secondary" href="{{ back_url }}">&larr; Back</a>
+        {% if analysis.kind == 'thematic' and study %}
         <a class="btn btn-sm btn-outline" href="/exports/study/{{ study.id }}">Export coded data for Atlas.ti</a>
-        {% else %}
+        {% elif analysis.kind != 'thematic' %}
         <a class="btn btn-sm btn-primary" href="/exports/analysis/{{ analysis.id }}">Replication package (Stata / R / Python)</a>
         {% endif %}
     </p>
-    {% endif %}
 
     {% if analysis.kind == 'thematic' %}
         {% if results.code_counts %}

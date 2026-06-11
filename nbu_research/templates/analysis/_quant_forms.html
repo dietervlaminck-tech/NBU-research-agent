@@ -1,0 +1,129 @@
+{# Shared quantitative analysis forms. Requires: run_url, numeric_cols,
+   categorical_cols. Used by the survey study hub and the dataset hub. #}
+<div class="grid-2">
+    <div class="card">
+        <h3>Descriptives</h3>
+        <p class="muted">Means, SDs and frequency tables for every variable.</p>
+        <form method="post" action="{{ run_url }}" class="mt-16">
+            <input type="hidden" name="kind" value="descriptives">
+            <button class="btn btn-primary" type="submit">Run descriptives</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Reliability</h3>
+        <p class="muted">Cronbach's alpha over a set of numeric items.</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="reliability">
+            <div class="form-group">
+                <label>Items (select 2+)</label>
+                <select name="items" multiple size="6" required>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Run reliability</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>t-test</h3>
+        <p class="muted">Independent samples, two groups.</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="ttest">
+            <div class="form-group">
+                <label>Dependent variable</label>
+                <select name="dv" required>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Grouping variable</label>
+                <select name="group_col" required>
+                    {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Run t-test</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>One-way ANOVA</h3>
+        <p class="muted">Compare a numeric DV across 2+ groups.</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="anova">
+            <div class="form-group">
+                <label>Dependent variable</label>
+                <select name="dv" required>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Factor</label>
+                <select name="factor" required>
+                    {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Run ANOVA</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Correlations</h3>
+        <p class="muted">Pearson correlation matrix with p-values.</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="correlation">
+            <div class="form-group">
+                <label>Items (select 2+)</label>
+                <select name="items" multiple size="6" required>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Run correlations</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Regression (OLS)</h3>
+        <p class="muted">Linear regression via statsmodels.</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="regression">
+            <div class="form-group">
+                <label>Dependent variable</label>
+                <select name="dv" required>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Predictors (select 1+)</label>
+                <select name="ivs" multiple size="6" required>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Run regression</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Crosstab (chi-square)</h3>
+        <p class="muted">Contingency table for two categorical variables.</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="crosstab">
+            <div class="form-group">
+                <label>Variable 1</label>
+                <select name="var1" required>
+                    {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Variable 2</label>
+                <select name="var2" required>
+                    {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit">Run crosstab</button>
+        </form>
+    </div>
+</div>
+{% if numeric_cols|length == 0 and categorical_cols|length == 0 %}
+<p class="muted mt-8">This data source has no analyzable columns.</p>
+{% endif %}

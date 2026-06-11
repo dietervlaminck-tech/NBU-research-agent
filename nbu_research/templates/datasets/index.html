@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Datasets - NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Datasets</h1>
+        <p>Upload tabular data (CSV, Excel, SPSS, Stata) as first-class analysis targets.</p>
+    </div>
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <strong>Upload failed.</strong> <span class="muted">{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3>Upload dataset</h3>
+        <form method="post" action="{{ url_for('datasets.upload') }}"
+              enctype="multipart/form-data" id="uploadForm">
+            <div class="form-group">
+                <label for="file">File</label>
+                <input type="file" id="file" name="file"
+                       accept=".csv,.xlsx,.xls,.sav,.dta" required>
+                <div class="hint">CSV, XLSX/XLS, SAV (SPSS) or DTA (Stata). The first sheet is used for Excel files.</div>
+            </div>
+            <div class="form-group">
+                <label for="name">Name (optional)</label>
+                <input type="text" id="name" name="name" placeholder="Defaults to the file name">
+            </div>
+            <div class="form-group">
+                <label for="project_id">Project (optional)</label>
+                <select id="project_id" name="project_id">
+                    <option value="">— No project —</option>
+                    {% for p in projects %}
+                    <option value="{{ p.id }}" {% if p.id == selected_project %}selected{% endif %}>{{ p.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="description">Description (optional)</label>
+                <textarea id="description" name="description" rows="2"
+                          placeholder="What is this dataset about?"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="uploadBtn">Upload dataset</button>
+        </form>
+    </div>
+
+    <h3 class="section-title">Your datasets</h3>
+    {% if datasets %}
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>Rows</th>
+                    <th>Columns</th>
+                    <th>Project</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in datasets %}
+                <tr id="row-{{ d.id }}">
+                    <td>
+                        <strong><a href="{{ url_for('datasets.detail', dataset_id=d.id) }}">{{ d.name }}</a></strong>
+                        {% if d.description %}<div class="muted">{{ d.description }}</div>{% endif %}
+                    </td>
+                    <td><span class="badge">{{ d.source }}</span></td>
+                    <td>{{ d.n_rows }}</td>
+                    <td>{{ d.n_columns }}</td>
+                    <td>{{ d.project_title or '—' }}</td>
+                    <td>{{ d.created_at[:10] }}</td>
+                    <td style="white-space:nowrap;">
+                        <a href="/analysis/dataset/{{ d.id }}" class="btn btn-secondary btn-sm">Analyze</a>
+                        <a href="{{ url_for('datasets.detail', dataset_id=d.id) }}" class="btn btn-secondary btn-sm">Preview</a>
+                        <a href="{{ url_for('datasets.download_csv', dataset_id=d.id) }}" class="btn btn-secondary btn-sm">CSV</a>
+                        <button class="btn btn-danger btn-sm" onclick="deleteDataset('{{ d.id }}')">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No datasets yet</h3>
+        <p>Upload a CSV, Excel, SPSS or Stata file above to start analyzing.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function () {
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+});
+
+async function deleteDataset(id) {
+    if (!confirm('Delete this dataset and its analyses?')) return;
+    const res = await fetch('{{ url_for("datasets.index") }}api/dataset/' + id, { method: 'DELETE' });
+    if (res.ok) {
+        const row = document.getElementById('row-' + id);
+        if (row) row.remove();
+    } else {
+        alert('Could not delete dataset.');
+    }
+}
+</script>
+{% endblock %}

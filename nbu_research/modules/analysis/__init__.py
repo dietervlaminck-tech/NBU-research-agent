@@ -22,8 +22,10 @@ def index():
         else:
             n = len(qualitative._codable_sessions(s["id"]))
         counts[s["id"]] = n
+    datasets = db.query("datasets")
     return render_template("analysis/index.html",
-                           studies=studies, projects=projects, counts=counts)
+                           studies=studies, projects=projects, counts=counts,
+                           datasets=datasets)
 
 
 def _hub_context(study, error=None):
@@ -49,6 +51,40 @@ def study_hub(study_id):
     if not study:
         return "Study not found", 404
     return render_template("analysis/study.html", **_hub_context(study))
+
+
+def _dataset_hub_context(dataset, error=None):
+    cols = quantitative.dataframe_columns(dataset)
+    return {
+        "dataset": dataset,
+        "analyses": db.query("analyses", "dataset_id = ?", (dataset["id"],)),
+        "numeric_cols": [c for c in cols if c["kind"] == "numeric"],
+        "categorical_cols": [c for c in cols if c["kind"] == "categorical"],
+        "error": error,
+    }
+
+
+@bp.route("/dataset/<dataset_id>")
+def dataset_hub(dataset_id):
+    dataset = db.get("datasets", dataset_id)
+    if not dataset:
+        return "Dataset not found", 404
+    return render_template("analysis/dataset.html", **_dataset_hub_context(dataset))
+
+
+@bp.route("/dataset/<dataset_id>/run", methods=["POST"])
+def run_dataset(dataset_id):
+    dataset = db.get("datasets", dataset_id)
+    if not dataset:
+        return "Dataset not found", 404
+    kind = request.form.get("kind", "")
+    try:
+        analysis_id = quantitative.run_analysis(
+            dataset, kind, _params_from_form(kind, request.form))
+    except ValueError as e:
+        ctx = _dataset_hub_context(dataset, error=str(e))
+        return render_template("analysis/dataset.html", **ctx), 400
+    return redirect(url_for("analysis.result", analysis_id=analysis_id))
 
 
 def _params_from_form(kind, form):
@@ -100,6 +136,14 @@ def result(analysis_id):
     if not analysis:
         return "Analysis not found", 404
     study = db.get("studies", analysis["study_id"]) if analysis.get("study_id") else None
+    dataset = db.get("datasets", analysis["dataset_id"]) if analysis.get("dataset_id") else None
+    # Back-link target: the survey study hub or the dataset hub.
+    if study:
+        back_url = url_for("analysis.study_hub", study_id=study["id"])
+    elif dataset:
+        back_url = url_for("analysis.dataset_hub", dataset_id=dataset["id"])
+    else:
+        back_url = url_for("analysis.index")
     results = analysis.get("results") or {}
     report_html, tables = None, []
     if analysis["kind"] == "thematic":
@@ -108,4 +152,5 @@ def result(analysis_id):
     else:
         tables = quantitative.result_tables(analysis["kind"], results)
     return render_template("analysis/result.html", analysis=analysis, study=study,
+                           dataset=dataset, back_url=back_url,
                            results=results, tables=tables, report_html=report_html)

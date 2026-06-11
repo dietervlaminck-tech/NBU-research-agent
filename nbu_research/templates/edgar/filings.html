@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}EDGAR Filings — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>EDGAR Filings</h1>
+        <p>Browse a company's recent SEC filings and analyze one with AI.</p>
+    </div>
+
+    <form action="{{ url_for('edgar.filings') }}" method="POST">
+        <div class="card">
+            <div class="form-group" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                <div style="flex:1;min-width:140px;">
+                    <label for="ticker">Ticker</label>
+                    <input type="text" id="ticker" name="ticker" value="{{ ticker }}" placeholder="e.g., AAPL" required>
+                </div>
+                <div style="flex:1;min-width:140px;">
+                    <label for="form_type">Form type</label>
+                    <select id="form_type" name="form_type">
+                        {% for ft in ['10-K', '10-Q', '8-K', 'DEF 14A', 'ALL'] %}
+                        <option value="{{ ft }}" {% if ft == form_type %}selected{% endif %}>{{ ft }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="width:120px;">
+                    <label for="count">Count</label>
+                    <input type="number" id="count" name="count" value="{{ count }}" min="1" max="50">
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary">List filings</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <strong>{{ error }}</strong>
+    </div>
+    {% endif %}
+
+    {% if results is not none %}
+    <div class="section-title">{{ company or ticker }} — {{ results | length }} filing(s)</div>
+    {% if results %}
+    <div class="card" style="overflow-x:auto;">
+        <table class="table">
+            <thead>
+                <tr><th>Form</th><th>Date</th><th>Accession</th><th>Document</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for f in results %}
+                <tr>
+                    <td><span class="badge">{{ f.form }}</span></td>
+                    <td>{{ f.date }}</td>
+                    <td class="muted">{{ f.accession }}</td>
+                    <td>
+                        {% if f.url %}<a href="{{ f.url }}" target="_blank">{{ f.primary_doc }}</a>
+                        {% else %}<span class="muted">—</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if f.url %}
+                        <form action="{{ url_for('edgar.analyze') }}" method="POST" style="margin:0;">
+                            <input type="hidden" name="ticker" value="{{ ticker }}">
+                            <input type="hidden" name="company" value="{{ company or ticker }}">
+                            <input type="hidden" name="form_type" value="{{ f.form }}">
+                            <input type="hidden" name="date" value="{{ f.date }}">
+                            <input type="hidden" name="url" value="{{ f.url }}">
+                            <button type="submit" class="btn btn-secondary btn-sm">Analyze with AI</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card"><p class="muted">No filings of this type found.</p></div>
+    {% endif %}
+    {% endif %}
+
+    <div class="mt-16">
+        <a href="{{ url_for('edgar.index') }}" class="muted">&larr; Back to EDGAR</a>
+    </div>
+</div>
+{% endblock %}

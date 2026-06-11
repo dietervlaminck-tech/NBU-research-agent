@@ -28,5 +28,24 @@
         <p>Create an interview or survey study first, then come back here to analyze the data.</p>
     </div>
     {% endif %}
+
+    {% if datasets %}
+    <div class="section-title">Datasets</div>
+    <p class="muted mb-16">Uploaded or connector-sourced tabular data (e.g. SEC EDGAR). Same statistics as surveys.</p>
+    {% for d in datasets %}
+    <div class="card flex-between">
+        <div>
+            <h3><a href="{{ url_for('analysis.dataset_hub', dataset_id=d.id) }}">{{ d.name }}</a></h3>
+            <div class="meta">
+                <span class="badge badge-active">dataset</span>
+                <span class="badge badge-pending">{{ d.source }}</span>
+                &nbsp;·&nbsp;{{ d.n_rows }} rows · {{ d.columns | length }} columns
+            </div>
+            {% if d.description %}<p class="muted">{{ d.description }}</p>{% endif %}
+        </div>
+        <a class="btn btn-primary" href="{{ url_for('analysis.dataset_hub', dataset_id=d.id) }}">Analyze</a>
+    </div>
+    {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}
