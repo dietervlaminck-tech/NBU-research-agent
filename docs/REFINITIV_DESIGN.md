@@ -1,8 +1,35 @@
-# Refinitiv (LSEG) Connector — Design
+# Refinitiv (LSEG) Connector — Design & Status
 
 Requested by M. Erkens (11 June 2026): automatic data pull from LSEG Refinitiv,
 for which Nyenrode holds a license. Same pattern extends to other databases;
-SEC EDGAR (free) ships first in Phase 2 and proves the architecture.
+SEC EDGAR (free) shipped first in Phase 2 and proves the architecture.
+
+## Status (11 June 2026)
+
+**Connector is BUILT** (`modules/refinitiv/`), wired into the platform, and
+**dormant until configured** — it mirrors the EDGAR connector→dataset pattern,
+supports both session modes, and reads all credentials from environment config
+(never committed). 55 tests pass. The live data path is written against the
+documented `lseg-data` API but is **unverified live** (this build environment
+has no library/Workspace/key).
+
+**Credentials received (from N. Saffari, ASC, 11 June):** a Refinitiv
+**Workspace desktop seat** — `eikon2@nyenrode.nl` + password, blocked until
+15 Aug 2026. This is a **named-user desktop account**, which enables the
+**desktop session** mode (runs where Workspace is installed, e.g. Dieter's Mac)
+— *not* the **platform/machine-account** needed for the Azure-hosted
+deployment.
+
+**To activate desktop mode:** install Refinitiv Workspace, sign in as eikon2,
+generate a **desktop app key** (App Key Generator inside Workspace, or the
+App Key Generator at apidocs.refinitiv.com once signed in), then set
+`LSEG_SESSION=desktop` and `LSEG_APP_KEY=...` in `.env` and `pip install
+lseg-data`.
+
+**Still needed for Azure hosting:** a Data Platform API **app key + machine
+account** (`LSEG_CLIENT_ID`/`LSEG_CLIENT_SECRET`). Academic Workspace licenses
+often don't include this; confirm with the LSEG account admin (Narges Saffari)
+whether the entitlement is available.
 
 ## Architecture: pluggable data sources
 

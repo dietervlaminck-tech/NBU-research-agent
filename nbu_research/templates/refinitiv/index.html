@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Refinitiv — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>LSEG Refinitiv</h1>
+        <p>Pull market data, fundamentals and ESG scores from LSEG Refinitiv into a dataset you can analyze and export.</p>
+    </div>
+
+    {% if not configured %}
+    <div class="card" style="border-left:4px solid #FBBA20;">
+        <h3>Connector not configured</h3>
+        <p class="muted">{{ not_configured_reason }}</p>
+        <p class="muted mt-8">Session mode: <strong>{{ session_mode }}</strong>. See
+            <code>docs/REFINITIV_DESIGN.md</code> for the credential setup.
+            The desktop mode runs on a machine with Refinitiv Workspace open; the
+            platform mode runs on the Azure server with a machine account.</p>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <p class="muted">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3>Build a dataset</h3>
+        <form method="post" action="{{ url_for('refinitiv.panel') }}">
+            <div class="form-group">
+                <label>Instruments (RICs or tickers, one per line or comma-separated)</label>
+                <textarea name="instruments" rows="3" placeholder="AAPL.O, MSFT.O, ASML.AS" {% if not configured %}disabled{% endif %}></textarea>
+            </div>
+            <div class="form-group">
+                <label>Field bundle</label>
+                <select name="bundle" {% if not configured %}disabled{% endif %}>
+                    {% for key, b in bundles.items() %}
+                    <option value="{{ key }}" {% if key == default_bundle %}selected{% endif %}>{{ b.label }} — {{ b.fields | join(', ') }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Start date (optional, e.g. 2018-01-01)</label>
+                    <input type="text" name="start" placeholder="YYYY-MM-DD" {% if not configured %}disabled{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label>End date (optional)</label>
+                    <input type="text" name="end" placeholder="YYYY-MM-DD" {% if not configured %}disabled{% endif %}>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Dataset name (optional)</label>
+                <input type="text" name="name" placeholder="Auto-generated if blank" {% if not configured %}disabled{% endif %}>
+            </div>
+            <div class="form-group">
+                <label>Project</label>
+                <select name="project_id" {% if not configured %}disabled{% endif %}>
+                    <option value="">(none)</option>
+                    {% for p in projects %}
+                    <option value="{{ p.id }}" {% if p.id == project_id %}selected{% endif %}>{{ p.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-primary" type="submit" {% if not configured %}disabled{% endif %}>Build dataset</button>
+            {% if not configured %}<span class="muted">&nbsp;Configure the connector to enable.</span>{% endif %}
+        </form>
+    </div>
+
+    <div class="section-title">Refinitiv datasets</div>
+    {% if datasets %}
+    <table class="table">
+        <tr><th>Name</th><th>Rows</th><th>Created</th></tr>
+        {% for d in datasets %}
+        <tr>
+            <td><a href="/datasets/{{ d.id }}">{{ d.name }}</a></td>
+            <td class="muted">{{ d.n_rows }}</td>
+            <td class="muted">{{ d.created_at[:10] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <div class="empty-state">No Refinitiv datasets yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -21,6 +21,7 @@ def create_app():
     from .modules.surveys import bp as surveys_bp
     from .modules.datasets import bp as datasets_bp
     from .modules.edgar import bp as edgar_bp
+    from .modules.refinitiv import bp as refinitiv_bp
     from .modules.analysis import bp as analysis_bp
     from .modules.literature import bp as literature_bp
     from .modules.writing import bp as writing_bp
@@ -31,6 +32,7 @@ def create_app():
     app.register_blueprint(surveys_bp, url_prefix="/surveys")
     app.register_blueprint(datasets_bp, url_prefix="/datasets")
     app.register_blueprint(edgar_bp, url_prefix="/edgar")
+    app.register_blueprint(refinitiv_bp, url_prefix="/refinitiv")
     app.register_blueprint(analysis_bp, url_prefix="/analysis")
     app.register_blueprint(literature_bp, url_prefix="/literature")
     app.register_blueprint(writing_bp, url_prefix="/writing")

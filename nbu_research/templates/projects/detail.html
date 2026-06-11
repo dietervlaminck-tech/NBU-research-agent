@@ -17,6 +17,7 @@
             <p class="muted">Upload data (CSV/Excel/SPSS/Stata) or pull from SEC EDGAR.</p>
             <a class="btn btn-primary btn-sm" href="{{ url_for('datasets.index') }}?project={{ project.id }}">Upload data</a>
             <a class="btn btn-secondary btn-sm" href="{{ url_for('edgar.index') }}?project={{ project.id }}">SEC EDGAR</a>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('refinitiv.index') }}?project={{ project.id }}">Refinitiv</a>
         </div>
         <div class="card">
             <h3>Literature research</h3>

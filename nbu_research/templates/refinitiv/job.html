@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Refinitiv — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Building Refinitiv dataset</h1>
+        <p class="muted">LSEG Refinitiv</p>
+    </div>
+
+    {% if job.status == 'error' %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <h3>This job failed</h3>
+        <p class="muted">{{ job.message }}</p>
+        <a href="{{ url_for('refinitiv.index') }}" class="btn btn-secondary btn-sm mt-16">Back to Refinitiv</a>
+    </div>
+    {% else %}
+    <div class="card" id="jobCard">
+        <h3>Working…</h3>
+        <p class="muted" id="jobMessage">{{ job.message or 'Starting…' }}</p>
+        <div class="progress-track mt-16">
+            <div class="progress-fill" id="progressFill" style="width: {{ ((job.progress or 0) * 100) | round }}%;"></div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if job.status not in ('done', 'error') %}
+<script>
+(function () {
+    var timer = setInterval(poll, 2000);
+    function poll() {
+        fetch("/api/jobs/{{ job.id }}").then(function (r) { return r.json(); }).then(function (job) {
+            var fill = document.getElementById("progressFill");
+            var msg = document.getElementById("jobMessage");
+            if (fill) fill.style.width = Math.round((job.progress || 0) * 100) + "%";
+            if (msg && job.message) msg.textContent = job.message;
+            if (job.status === "done") {
+                clearInterval(timer);
+                window.location = "{{ url_for('refinitiv.job_done', job_id=job.id) }}";
+            } else if (job.status === "error") {
+                clearInterval(timer);
+                window.location.reload();
+            }
+        }).catch(function () {});
+    }
+    poll();
+})();
+</script>
+{% elif job.status == 'done' %}
+<script>window.location = "{{ url_for('refinitiv.job_done', job_id=job.id) }}";</script>
+{% endif %}
+{% endblock %}
