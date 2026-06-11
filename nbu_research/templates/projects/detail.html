@@ -75,6 +75,77 @@
     </table>
     {% else %}<div class="empty-state">No literature reviews yet.</div>{% endif %}
 
+    <div class="section-title">Team</div>
+    <div class="card">
+        {% if members %}
+        <table class="table">
+            <tr><th>Member</th><th>Email</th><th>Role</th>{% if my_role == 'owner' %}<th></th>{% endif %}</tr>
+            {% for m in members %}
+            <tr>
+                <td>{{ m.display_name }}</td>
+                <td class="muted">{{ m.email }}</td>
+                <td>
+                    {% if my_role == 'owner' %}
+                    <form method="post" action="{{ url_for('projects.update_member', project_id=project.id, member_id=m.id) }}" style="display:inline;">
+                        <input type="hidden" name="action" value="role">
+                        <select name="role" onchange="this.form.submit()">
+                            {% for r in ['viewer','collaborator','owner'] %}
+                            <option value="{{ r }}" {% if m.role == r %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% else %}<span class="badge badge-active">{{ m.role }}</span>{% endif %}
+                </td>
+                {% if my_role == 'owner' %}
+                <td>
+                    <form method="post" action="{{ url_for('projects.update_member', project_id=project.id, member_id=m.id) }}">
+                        <input type="hidden" name="action" value="remove">
+                        <button class="btn btn-sm btn-danger" type="submit">Remove</button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p class="muted">No members yet — this project predates the roles model; any researcher can manage it until an owner is added.</p>
+        {% endif %}
+
+        {% if invites %}
+        <p class="muted mt-8">Pending invites:
+            {% for inv in invites %}
+            <span class="badge badge-pending">{{ inv.email }} ({{ inv.role }})</span>
+            {% if my_role == 'owner' %}
+            <form method="post" action="{{ url_for('projects.delete_invite', project_id=project.id, invite_id=inv.id) }}" style="display:inline;">
+                <button class="btn btn-sm btn-outline" type="submit">×</button>
+            </form>
+            {% endif %}
+            {% endfor %}
+        </p>
+        {% endif %}
+
+        {% if my_role == 'owner' %}
+        <form method="post" action="{{ url_for('projects.add_member', project_id=project.id) }}" class="mt-16">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Invite by email</label>
+                    <input type="email" name="email" placeholder="colleague@nyenrode.nl" required>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select name="role">
+                        <option value="viewer">viewer — can read</option>
+                        <option value="collaborator" selected>collaborator — can add data &amp; run analyses</option>
+                        <option value="owner">owner — full control</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm" type="submit">Invite</button>
+            <span class="muted">&nbsp;Colleagues who have logged in before are added immediately; others join automatically on first login.</span>
+        </form>
+        {% endif %}
+    </div>
+
     <div class="section-title">Articles</div>
     {% if articles %}
     <table class="table">

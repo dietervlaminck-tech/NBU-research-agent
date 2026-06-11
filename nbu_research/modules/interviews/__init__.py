@@ -7,6 +7,7 @@ from flask import (
 )
 
 from ... import db
+from ...auth import check_project_role
 from ...config import DEFAULT_INTERVIEW_MODEL
 from .bot import DEFAULT_GENERAL_INSTRUCTIONS, FIRST_USER_MESSAGE, stream_interview_reply
 
@@ -90,6 +91,7 @@ def dashboard(study_id):
     study = _get_interview_study(study_id)
     if not study:
         return "Study not found", 404
+    check_project_role(study.get("project_id"), "viewer")
     sessions = db.query("sessions", "study_id = ?", (study_id,), order="started_at DESC")
     return render_template(
         "interviews/dashboard.html",
@@ -207,6 +209,9 @@ def _complete_session(session):
 
 @bp.route("/api/study/<study_id>", methods=["DELETE"])
 def api_delete_study(study_id):
+    study = db.get("studies", study_id)
+    if study:
+        check_project_role(study.get("project_id"), "collaborator")
     for session in db.query("sessions", "study_id = ?", (study_id,), order=""):
         db.delete("sessions", session["id"])
     db.delete("studies", study_id)

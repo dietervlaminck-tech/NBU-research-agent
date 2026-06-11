@@ -4,6 +4,7 @@ import markdown as md
 from flask import Blueprint, render_template, request, redirect, url_for
 
 from ... import db
+from ...auth import check_project_role
 from . import qualitative, quantitative
 
 bp = Blueprint("analysis", __name__)
@@ -50,6 +51,7 @@ def study_hub(study_id):
     study = db.get("studies", study_id)
     if not study:
         return "Study not found", 404
+    check_project_role(study.get("project_id"), "viewer")
     return render_template("analysis/study.html", **_hub_context(study))
 
 
@@ -69,6 +71,7 @@ def dataset_hub(dataset_id):
     dataset = db.get("datasets", dataset_id)
     if not dataset:
         return "Dataset not found", 404
+    check_project_role(dataset.get("project_id"), "viewer")
     return render_template("analysis/dataset.html", **_dataset_hub_context(dataset))
 
 
@@ -77,6 +80,7 @@ def run_dataset(dataset_id):
     dataset = db.get("datasets", dataset_id)
     if not dataset:
         return "Dataset not found", 404
+    check_project_role(dataset.get("project_id"), "collaborator")
     kind = request.form.get("kind", "")
     try:
         analysis_id = quantitative.run_analysis(
@@ -108,6 +112,7 @@ def run(study_id):
     study = db.get("studies", study_id)
     if not study:
         return "Study not found", 404
+    check_project_role(study.get("project_id"), "collaborator")
     kind = request.form.get("kind", "")
 
     if kind == "thematic":
@@ -137,6 +142,8 @@ def result(analysis_id):
         return "Analysis not found", 404
     study = db.get("studies", analysis["study_id"]) if analysis.get("study_id") else None
     dataset = db.get("datasets", analysis["dataset_id"]) if analysis.get("dataset_id") else None
+    target = study or dataset or {}
+    check_project_role(target.get("project_id") or analysis.get("project_id"), "viewer")
     # Back-link target: the survey study hub or the dataset hub.
     if study:
         back_url = url_for("analysis.study_hub", study_id=study["id"])

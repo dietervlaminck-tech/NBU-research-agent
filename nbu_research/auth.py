@@ -148,6 +148,54 @@ def logout():
     )
 
 
+# --- per-project roles (viewer < collaborator < owner) -------------------------
+
+ROLE_ORDER = {"viewer": 1, "collaborator": 2, "owner": 3}
+
+
+def project_role(project_id, user=None):
+    """The user's role on a project, or None.
+
+    Dev mode (auth disabled) → 'owner' everywhere. Projects created before the
+    roles model (no member rows at all) are grandfathered: any authenticated
+    researcher acts as owner, so existing data never locks itself away.
+    """
+    user = user or current_user()
+    if user is None:
+        return None
+    if not auth_configured():
+        return "owner"
+    members = db.query("project_members", "project_id = ?", (project_id,), order="")
+    if not members:
+        return "owner"  # legacy project, no membership rows yet
+    for m in members:
+        if m["user_id"] == user["user_id"]:
+            return m["role"]
+    return None
+
+
+def check_project_role(project_id, min_role):
+    """Abort 403 unless the current user has at least min_role on the project.
+    A None/empty project_id (standalone studies/datasets) only requires login,
+    which the global guard already enforces."""
+    if not project_id:
+        return
+    role = project_role(project_id)
+    if role is None or ROLE_ORDER[role] < ROLE_ORDER[min_role]:
+        abort(403)
+
+
+def require_project_role(min_role):
+    """Decorator for routes with a `project_id` path argument."""
+    def deco(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            check_project_role(kwargs.get("project_id"), min_role)
+            return fn(*args, **kwargs)
+        return wrapper
+    return deco
+
+
 def _upsert_user(user):
     """First-login upsert into users; convert pending email invites into
     memberships (project_members) — see the roles model in db.py."""

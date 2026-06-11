@@ -9,6 +9,7 @@ from flask import (
 )
 
 from ... import db
+from ...auth import check_project_role
 from . import store
 
 bp = Blueprint("datasets", __name__, template_folder="../templates")
@@ -120,6 +121,7 @@ def detail(dataset_id):
     dataset = db.get("datasets", dataset_id)
     if not dataset:
         return "Dataset not found", 404
+    check_project_role(dataset.get("project_id"), "viewer")
     column_ids, rows = store.preview(dataset, n=20)
     return render_template(
         "datasets/detail.html",
@@ -134,6 +136,7 @@ def download_csv(dataset_id):
     dataset = db.get("datasets", dataset_id)
     if not dataset:
         return "Dataset not found", 404
+    check_project_role(dataset.get("project_id"), "viewer")
     data = (dataset.get("data_csv") or "").encode("utf-8")
     safe_name = (dataset.get("name") or "dataset").replace(" ", "_")
     return send_file(
@@ -145,6 +148,9 @@ def download_csv(dataset_id):
 
 
 def _delete_dataset(dataset_id):
+    dataset = db.get("datasets", dataset_id)
+    if dataset:
+        check_project_role(dataset.get("project_id"), "collaborator")
     for a in db.query("analyses", "dataset_id = ?", (dataset_id,)):
         db.delete("analyses", a["id"])
     db.delete("datasets", dataset_id)

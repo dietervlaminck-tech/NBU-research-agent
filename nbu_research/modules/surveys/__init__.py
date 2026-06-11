@@ -3,6 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
 
 from ... import db
+from ...auth import check_project_role
 from .builder import (
     QUESTION_TYPES,
     design_survey,
@@ -130,6 +131,7 @@ def dashboard(study_id):
     study = _get_survey(study_id)
     if not study:
         return "Survey not found", 404
+    check_project_role(study.get("project_id"), "viewer")
     questions = study["config"]["questions"]
     responses = db.query("survey_responses", "study_id = ?", (study_id,),
                          order="started_at DESC")
@@ -154,6 +156,9 @@ def dashboard(study_id):
 
 @bp.route("/api/study/<study_id>", methods=["DELETE"])
 def api_delete_study(study_id):
+    study = db.get("studies", study_id)
+    if study:
+        check_project_role(study.get("project_id"), "collaborator")
     study = _get_survey(study_id)
     if not study:
         return jsonify({"error": "Survey not found"}), 404
