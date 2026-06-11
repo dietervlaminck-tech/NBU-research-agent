@@ -11,11 +11,16 @@ import io
 from flask import Blueprint, render_template, send_file, abort
 
 from ... import db
-from . import tabular, documents, qdpx, qsf, spss
+from . import tabular, documents, qdpx, qsf, spss, stats_packages
 
 bp = Blueprint("exports", __name__)
 
-TABLES = {"study": "studies", "article": "articles", "review": "literature_reviews"}
+TABLES = {"study": "studies", "article": "articles",
+          "review": "literature_reviews", "analysis": "analyses"}
+
+# Replication scripts exist for quantitative kinds only (not thematic).
+QUANT_KINDS = ("descriptives", "reliability", "ttest", "anova",
+               "correlation", "regression", "crosstab")
 
 # Extra keys beyond the contract: "tool" (shown in the UI as the target tool)
 # and "study_types" (None = both study types; otherwise a restriction).
@@ -52,6 +57,36 @@ EXPORTERS = {
         "label": "REFI-QDA project (.qdpx)", "applies_to": "study",
         "tool": "Atlas.ti / NVivo / MAXQDA", "study_types": ("interview",),
         "fn": qdpx.study_qdpx,
+    },
+    "study_dta": {
+        "label": "Stata dataset (.dta)", "applies_to": "study",
+        "tool": "Stata", "study_types": ("survey",), "fn": stats_packages.study_dta,
+    },
+    "study_rds": {
+        "label": "R dataset (.rds)", "applies_to": "study",
+        "tool": "R / RStudio", "study_types": ("survey",), "fn": stats_packages.study_rds,
+    },
+    "study_ipynb": {
+        "label": "Jupyter notebook with data (.ipynb)", "applies_to": "study",
+        "tool": "Python / Jupyter", "study_types": ("survey",),
+        "fn": stats_packages.study_ipynb,
+    },
+    "analysis_zip": {
+        "label": "Replication package (.zip) — data + Stata/R/Python + codebook",
+        "applies_to": "analysis", "tool": "OSF / journal data policy",
+        "kinds": QUANT_KINDS, "fn": stats_packages.analysis_zip,
+    },
+    "analysis_do": {
+        "label": "Stata script (.do)", "applies_to": "analysis",
+        "tool": "Stata", "kinds": QUANT_KINDS, "fn": stats_packages.analysis_do,
+    },
+    "analysis_r": {
+        "label": "R script (.R)", "applies_to": "analysis",
+        "tool": "R / RStudio", "kinds": QUANT_KINDS, "fn": stats_packages.analysis_r,
+    },
+    "analysis_py": {
+        "label": "Python script (.py)", "applies_to": "analysis",
+        "tool": "Python", "kinds": QUANT_KINDS, "fn": stats_packages.analysis_py,
     },
     "article_docx": {
         "label": "Word document (.docx)", "applies_to": "article",
@@ -93,6 +128,10 @@ def _formats_for(applies_to, obj=None):
         if applies_to == "study" and obj is not None:
             allowed = spec.get("study_types")
             if allowed and obj.get("study_type") not in allowed:
+                continue
+        if applies_to == "analysis" and obj is not None:
+            allowed = spec.get("kinds")
+            if allowed and obj.get("kind") not in allowed:
                 continue
         items.append((key, spec))
     return items
@@ -141,6 +180,10 @@ def download(applies_to, obj_id, format_key):
     if applies_to == "study":
         allowed = spec.get("study_types")
         if allowed and obj.get("study_type") not in allowed:
+            abort(404)
+    if applies_to == "analysis":
+        allowed = spec.get("kinds")
+        if allowed and obj.get("kind") not in allowed:
             abort(404)
     data, filename, mimetype = spec["fn"](obj_id)
     return send_file(io.BytesIO(data), mimetype=mimetype,

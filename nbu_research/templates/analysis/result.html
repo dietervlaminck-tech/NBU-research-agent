@@ -16,6 +16,8 @@
         <a class="btn btn-sm btn-secondary" href="{{ url_for('analysis.study_hub', study_id=study.id) }}">&larr; Back to study analysis</a>
         {% if analysis.kind == 'thematic' %}
         <a class="btn btn-sm btn-outline" href="/exports/study/{{ study.id }}">Export coded data for Atlas.ti</a>
+        {% else %}
+        <a class="btn btn-sm btn-primary" href="/exports/analysis/{{ analysis.id }}">Replication package (Stata / R / Python)</a>
         {% endif %}
     </p>
     {% endif %}

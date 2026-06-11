@@ -64,9 +64,13 @@ checkbox → list of option strings; open → string; matrix → `{row_text: num
 ## Export registry
 
 `modules/exports/__init__.py` exposes `EXPORTERS`, a dict
-`{format_key: {"label": str, "applies_to": "study|article|review", "fn": callable}}`
+`{format_key: {"label": str, "applies_to": "study|article|review|analysis", "fn": callable}}`
 where `fn(obj_id) -> (bytes, filename, mimetype)`. Other modules link to
 `/exports/<applies_to>/<obj_id>` which lists applicable formats.
+
+Sanctioned exception to the no-cross-module-imports rule: `exports` may import
+the analysis module's `responses_dataframe`/`dataframe_columns` (one-way) so
+replication scripts reference exactly the column ids used in analyses.
 
 ## UI conventions
 

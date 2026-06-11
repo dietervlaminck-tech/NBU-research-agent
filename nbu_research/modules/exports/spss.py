@@ -12,20 +12,21 @@ from .common import slugify, survey_columns, answer_value, question_id
 NUMERIC_TYPES = {"likert", "numeric", "matrix"}
 
 
-def sanitize_varnames(names):
-    """SPSS variable names: <=64 bytes, alnum/underscore, start with a letter,
-    unique (case-insensitive). Returns a list aligned with `names`."""
+def sanitize_varnames(names, maxlen=64):
+    """Stat-package variable names: <=maxlen bytes (SPSS 64, Stata 32),
+    alnum/underscore, start with a letter, unique (case-insensitive).
+    Returns a list aligned with `names`."""
     out, seen = [], set()
     for name in names:
         s = re.sub(r"[^0-9A-Za-z_]", "_", str(name)) or "var"
         if not s[0].isalpha():
             s = "v_" + s
-        s = s[:64]
+        s = s[:maxlen]
         candidate, n = s, 1
         while candidate.lower() in seen:
             n += 1
             suffix = f"_{n}"
-            candidate = s[:64 - len(suffix)] + suffix
+            candidate = s[:maxlen - len(suffix)] + suffix
         seen.add(candidate.lower())
         out.append(candidate)
     return out

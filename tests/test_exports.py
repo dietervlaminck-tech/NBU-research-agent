@@ -139,6 +139,11 @@ def _setup():
     fix["empty_review"] = db.insert("literature_reviews", {
         "project_id": fix["project"], "research_question": "Empty?",
     })
+    fix["empty_analysis"] = db.insert("analyses", {
+        "study_id": fix["empty_survey"], "kind": "descriptives",
+        "title": "Empty descriptives", "params": {}, "results": {},
+        "status": "done",
+    })
     return fix
 
 
@@ -160,7 +165,7 @@ def _export(key, obj_id):
 def test_registry_shape():
     assert exports.EXPORTERS
     for key, spec in exports.EXPORTERS.items():
-        assert spec["applies_to"] in ("study", "article", "review"), key
+        assert spec["applies_to"] in ("study", "article", "review", "analysis"), key
         assert spec["label"], key
         assert callable(spec["fn"]), key
 
@@ -382,6 +387,8 @@ def test_empty_objects_export():
                 _export(key, FIX["empty_interview"])
         elif spec["applies_to"] == "article":
             _export(key, FIX["empty_article"])
+        elif spec["applies_to"] == "analysis":
+            _export(key, FIX["empty_analysis"])
         else:
             _export(key, FIX["empty_review"])
 

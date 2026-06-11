@@ -1,5 +1,17 @@
 # Roadmap
 
+## Stakeholder track (M. Erkens, June 2026 — target: June 22)
+
+- [x] **Phase 1 (June 11):** Stata (.dta), R (.rds), Jupyter notebook exports;
+  per-analysis replication packages (data + .do/.R/.py scripts + codebook +
+  README) for OSF/journal data policies
+- [ ] **Phase 2 (start June 12):** dataset upload module (CSV/XLSX/SAV/DTA as
+  first-class analyzable datasets) + SEC EDGAR connector (filings index,
+  full-text search, XBRL company facts → panel datasets + AI filing analysis)
+- [ ] **Phase 3 (start ~June 16, needs LSEG credentials):** Refinitiv
+  connector — see [REFINITIV_DESIGN.md](REFINITIV_DESIGN.md)
+- [ ] **Phase 4 (June 19–21):** integration testing, deploy, buffer
+
 ## v0.1 (this repo, working foundation)
 - [x] Unified platform: projects, interviews (ported), native surveys, analysis, literature, writing, exports
 - [x] AI thematic coding → REFI-QDA export
