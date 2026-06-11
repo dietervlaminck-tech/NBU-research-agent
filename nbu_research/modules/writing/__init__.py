@@ -121,6 +121,31 @@ def revise_article(article_id):
     return redirect(url_for("writing.article_detail", article_id=article_id))
 
 
+@bp.route("/article/<article_id>/disclosure")
+def article_disclosure(article_id):
+    """AI disclosure statement, generated from the article's recorded AI
+    history (jobs + ai_usage_log). Cached in the article metadata; pass
+    ?refresh=1 to regenerate after further AI edits."""
+    from . import disclosure as disclosure_mod
+    article = db.get("articles", article_id)
+    if not article:
+        return "Article not found", 404
+    metadata = article.get("metadata") or {}
+    cached = metadata.get("disclosure")
+    if cached and request.args.get("refresh") != "1":
+        result, error = cached, None
+    else:
+        try:
+            result = disclosure_mod.generate_disclosure(article)
+            metadata["disclosure"] = result
+            db.update("articles", article_id, {"metadata": metadata})
+            error = None
+        except Exception as e:
+            result, error = None, str(e)
+    return render_template("writing/disclosure.html",
+                           article=article, disclosure=result, error=error)
+
+
 @bp.route("/api/article/<article_id>", methods=["DELETE"])
 def api_delete_article(article_id):
     db.delete("articles", article_id)

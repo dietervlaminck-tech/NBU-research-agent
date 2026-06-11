@@ -4,10 +4,15 @@ Agent pipelines (literature reviews, thematic coding, article generation) take
 minutes. Routes start a job, return its id, and the UI polls
 GET /api/jobs/<id> until status is done|error.
 """
+import contextvars
 import threading
 import traceback
 
 from . import db
+
+# The job currently executing in this thread/context; llm.py reads it so every
+# AI call made inside a background pipeline is attributed in ai_usage_log.
+current_job_id = contextvars.ContextVar("current_job_id", default=None)
 
 
 def start_job(kind, fn, ref_table="", ref_id=""):
@@ -22,6 +27,7 @@ def start_job(kind, fn, ref_table="", ref_id=""):
     })
 
     def runner():
+        current_job_id.set(job_id)
         try:
             result = fn(job_id) or {}
             db.update("jobs", job_id, {

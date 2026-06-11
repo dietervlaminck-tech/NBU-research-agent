@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}AI disclosure — {{ article.title }} — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>AI disclosure statement</h1>
+        <p><span class="badge badge-active">{{ article.title }}</span></p>
+    </div>
+
+    <p class="mb-16">
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('writing.article_detail', article_id=article.id) }}">&larr; Back to article</a>
+        <a class="btn btn-sm btn-outline" href="{{ url_for('writing.article_disclosure', article_id=article.id, refresh=1) }}">Regenerate</a>
+    </p>
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <h3>Could not generate the disclosure</h3>
+        <p class="muted">{{ error }}</p>
+    </div>
+    {% elif disclosure %}
+
+    <div class="card">
+        <h3>Summary (Methods section / author note)</h3>
+        <p id="fmt-summary">{{ disclosure.summary }}</p>
+        <button class="btn btn-sm btn-outline" onclick="copyText('fmt-summary', this)">Copy</button>
+    </div>
+
+    <div class="card">
+        <h3>Models used</h3>
+        <table class="table">
+            <tr><th>Model</th><th>Contribution</th></tr>
+            {% for m in disclosure.models_used %}
+            <tr><td><code>{{ m.model }}</code></td><td>{{ m.what_it_did }}</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>Human oversight</h3>
+        <p id="fmt-oversight">{{ disclosure.human_oversight_statement }}</p>
+        <button class="btn btn-sm btn-outline" onclick="copyText('fmt-oversight', this)">Copy</button>
+    </div>
+
+    <div class="section-title">Journal-ready formats</div>
+
+    <div class="card">
+        <h3>APA author note</h3>
+        <p id="fmt-apa">{{ disclosure.recommended_journal_format.apa_author_note }}</p>
+        <button class="btn btn-sm btn-primary" onclick="copyText('fmt-apa', this)">Copy APA format</button>
+    </div>
+
+    <div class="card">
+        <h3>Springer Nature declaration</h3>
+        <p id="fmt-springer">{{ disclosure.recommended_journal_format.springer_data_availability }}</p>
+        <button class="btn btn-sm btn-primary" onclick="copyText('fmt-springer', this)">Copy Springer format</button>
+    </div>
+
+    <div class="card">
+        <h3>Generic disclosure</h3>
+        <p id="fmt-generic">{{ disclosure.recommended_journal_format.generic }}</p>
+        <button class="btn btn-sm btn-primary" onclick="copyText('fmt-generic', this)">Copy generic format</button>
+    </div>
+
+    {% if disclosure._history %}
+    <p class="muted mt-16">
+        Based on the platform's audit log: {{ disclosure._history.ai_calls_logged }} AI call(s),
+        models {{ disclosure._history.models_used | join(', ') or 'n/a' }},
+        {{ disclosure._history.ai_assistance_date_range.from or '—' }} to
+        {{ disclosure._history.ai_assistance_date_range.to or '—' }}.
+    </p>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyText(id, btn) {
+    var text = document.getElementById(id).innerText;
+    navigator.clipboard.writeText(text).then(function () {
+        var old = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(function () { btn.textContent = old; }, 1500);
+    });
+}
+</script>
+{% endblock %}

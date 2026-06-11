@@ -192,6 +192,19 @@ CREATE TABLE IF NOT EXISTS articles (
     updated_at TEXT NOT NULL
 );
 
+-- Audit log of every AI call made anywhere in the platform. Written centrally
+-- by llm.py; feeds the AI disclosure generator and future audits.
+CREATE TABLE IF NOT EXISTS ai_usage_log (
+    id TEXT PRIMARY KEY,
+    model TEXT NOT NULL,
+    module TEXT NOT NULL DEFAULT '',
+    job_id TEXT,
+    project_id TEXT,
+    user_id TEXT,
+    timestamp TEXT NOT NULL,
+    token_count_approx INTEGER NOT NULL DEFAULT 0
+);
+
 -- Background jobs (agent pipelines run minutes; the UI polls these).
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
@@ -266,9 +279,17 @@ def insert(table, values):
     cols = ", ".join(values)
     marks = ", ".join("?" for _ in values)
     conn = get_db()
-    conn.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks})", list(values.values()))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(f"INSERT INTO {table} ({cols}) VALUES ({marks})",
+                     list(values.values()))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        # A leaked connection with a pending write transaction locks the whole
+        # SQLite database for every other connection — always close.
+        conn.close()
     return values["id"]
 
 
@@ -281,15 +302,23 @@ def update(table, row_id, values):
             values[f] = json.dumps(values[f])
     sets = ", ".join(f"{k} = ?" for k in values)
     conn = get_db()
-    conn.execute(f"UPDATE {table} SET {sets} WHERE id = ?", list(values.values()) + [row_id])
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(f"UPDATE {table} SET {sets} WHERE id = ?",
+                     list(values.values()) + [row_id])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def get(table, row_id):
     conn = get_db()
-    row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
-    conn.close()
+    try:
+        row = conn.execute(f"SELECT * FROM {table} WHERE id = ?", (row_id,)).fetchone()
+    finally:
+        conn.close()
     return _decode(table, row)
 
 
@@ -300,16 +329,23 @@ def query(table, where="", args=(), order="created_at DESC"):
     if order:
         sql += f" ORDER BY {order}"
     conn = get_db()
-    rows = conn.execute(sql, args).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(sql, args).fetchall()
+    finally:
+        conn.close()
     return [_decode(table, r) for r in rows]
 
 
 def delete(table, row_id):
     conn = get_db()
-    conn.execute(f"DELETE FROM {table} WHERE id = ?", (row_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute(f"DELETE FROM {table} WHERE id = ?", (row_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 _column_cache = {}

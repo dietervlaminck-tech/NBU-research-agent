@@ -20,6 +20,7 @@
             {% if article.content_md %}
             <a href="/exports/article/{{ article.id }}" class="btn btn-secondary btn-sm">Export</a>
             {% endif %}
+            <a href="{{ url_for('writing.article_disclosure', article_id=article.id) }}" class="btn btn-primary btn-sm" title="Journal-ready statement of how AI assisted this manuscript">AI disclosure</a>
             <button class="btn btn-secondary btn-sm" onclick="deleteArticle()">Delete</button>
         </div>
     </div>
