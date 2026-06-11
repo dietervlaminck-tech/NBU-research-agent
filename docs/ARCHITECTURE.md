@@ -57,8 +57,20 @@ override per study.
 
 ## Concurrency model
 
-Single gunicorn worker, many threads. SQLite in WAL mode handles the
-read-heavy load; background pipelines run as daemon threads writing progress to
-the `jobs` table. This is deliberately the simplest thing that works for a
-single-institution deployment — see ROADMAP for the Postgres/queue upgrade path
-if usage grows.
+Single gunicorn web worker, many threads; SQLite in WAL mode handles the
+read-heavy load. Background pipelines are **registered jobs** (`@jobs.job`,
+JSON-serializable payloads) with pluggable dispatch:
+
+- **Production — Celery + Redis (durable):** with `CELERY_BROKER_URL` set,
+  `jobs.start_job` queues to Redis and a separate worker process executes
+  (`celery -A nbu_research.worker worker`), so Azure Web App restarts no longer
+  kill running pipelines. `acks_late` + a completed-job skip in `jobs.execute`
+  make a redelivery after a worker crash safe (run-once semantics); transient
+  infrastructure errors retry once automatically. Pipeline errors mark the job
+  row `error` with the message — they never retry-storm the broker.
+- **Dev — in-process threads:** without a broker (or with
+  `USE_EAGER_TASKS=true`) jobs run in daemon threads exactly as before. No
+  Redis required; requests still return immediately.
+
+Either way the `jobs` table carries progress and the UI polls
+`GET /api/jobs/<id>` unchanged.

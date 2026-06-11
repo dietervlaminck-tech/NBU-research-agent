@@ -19,7 +19,7 @@ from flask import (
 )
 
 from ... import db
-from ...jobs import start_job, get_job, update_progress
+from ...jobs import job as job_task, start_job, get_job, update_progress
 from ...llm import complete
 from ...config import anthropic_api_key
 from ..datasets.store import from_dataframe
@@ -128,8 +128,9 @@ def build_panel(tickers, concepts, year_from, year_to, progress=None):
     return df, notes
 
 
-def _run_panel_job(job_id, project_id, name, description, tickers, concepts,
-                   year_from, year_to):
+@job_task("edgar_panel")
+def _run_panel_job(job_id, project_id=None, name="", description="", tickers=None,
+                   concepts=None, year_from=None, year_to=None):
     """Background worker: build the panel and store it as a dataset."""
     def progress(frac, message):
         # Reserve the last 10% for the store step.
@@ -200,9 +201,9 @@ def panel():
 
     job_id = start_job(
         "edgar_panel",
-        lambda jid: _run_panel_job(
-            jid, project_id, name, description, tickers, concepts, year_from, year_to,
-        ),
+        {"project_id": project_id, "name": name, "description": description,
+         "tickers": tickers, "concepts": concepts,
+         "year_from": year_from, "year_to": year_to},
         ref_table="datasets",
     )
     return redirect(url_for(
@@ -288,7 +289,9 @@ def filings():
     )
 
 
-def _run_analysis_job(job_id, ticker, company, form_type, date, url, model):
+@job_task("edgar_filing_analysis")
+def _run_analysis_job(job_id, ticker="", company="", form_type="", date="",
+                      url="", model=None):
     """Background worker: fetch a filing and run the LLM analysis."""
     update_progress(job_id, 0.2, "Fetching filing text…")
     text = client.filing_text(url)
@@ -339,9 +342,8 @@ def analyze():
 
     job_id = start_job(
         "edgar_filing_analysis",
-        lambda jid: _run_analysis_job(
-            jid, ticker, company, form_type, date, url, None,
-        ),
+        {"ticker": ticker, "company": company, "form_type": form_type,
+         "date": date, "url": url},
         ref_table="articles",
     )
     return redirect(url_for(

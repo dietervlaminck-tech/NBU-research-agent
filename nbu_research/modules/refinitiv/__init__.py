@@ -20,7 +20,7 @@ from flask import (
 
 from ... import db
 from ...config import LSEG_SESSION, lseg_configured
-from ...jobs import start_job, get_job, update_progress
+from ...jobs import job as job_task, start_job, get_job, update_progress
 from ..datasets.store import from_dataframe
 from . import client
 
@@ -67,8 +67,9 @@ def _availability():
 
 # --- panel job ---------------------------------------------------------------
 
-def _run_panel_job(job_id, project_id, name, description, instruments, fields,
-                   start, end):
+@job_task("refinitiv_panel")
+def _run_panel_job(job_id, project_id=None, name="", description="",
+                   instruments=None, fields=None, start=None, end=None):
     def progress(frac, message):
         update_progress(job_id, round(frac * 0.9, 3), message)
 
@@ -140,8 +141,9 @@ def panel():
 
     job_id = start_job(
         "refinitiv_panel",
-        lambda jid: _run_panel_job(jid, project_id, name, description,
-                                   instruments, fields, start, end),
+        {"project_id": project_id, "name": name, "description": description,
+         "instruments": instruments, "fields": fields,
+         "start": start, "end": end},
         ref_table="datasets",
     )
     return redirect(url_for("refinitiv.job_progress", job_id=job_id))

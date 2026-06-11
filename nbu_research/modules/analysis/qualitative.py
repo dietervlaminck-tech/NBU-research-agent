@@ -14,7 +14,7 @@ from collections import Counter
 
 from ... import db, llm
 from ...config import DEFAULT_PIPELINE_MODEL
-from ...jobs import start_job, update_progress
+from ...jobs import job as job_task, start_job, update_progress
 
 CODEBOOK_SCHEMA = {
     "type": "object",
@@ -89,7 +89,7 @@ def start_thematic_job(study_id):
     """Kick off the thematic-analysis background job; returns the job id."""
     return start_job(
         "thematic",
-        lambda job_id: run_thematic_analysis(study_id, job_id),
+        {"study_id": study_id},
         ref_table="studies", ref_id=study_id,
     )
 
@@ -238,3 +238,8 @@ def run_thematic_analysis(study_id, job_id):
     })
     return {"analysis_id": analysis_id, "codebook_id": codebook_id,
             "n_segments": n_segments}
+
+
+@job_task("thematic")
+def _thematic_job(job_id, study_id=None):
+    return run_thematic_analysis(study_id, job_id)

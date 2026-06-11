@@ -316,3 +316,16 @@ def _revise(article, instructions, job_id):
     )
     db.update("articles", article_id, {"content_md": revised, "status": "revised"})
     return {"article_id": article_id}
+
+
+from ...jobs import job as _job  # noqa: E402
+
+
+@_job("article_generation")
+def _article_generation_job(job_id, article_id=None):
+    return run_article_generation(article_id, job_id)
+
+
+@_job("article_revision")
+def _article_revision_job(job_id, article_id=None, instructions=""):
+    return run_article_revision(article_id, instructions, job_id)

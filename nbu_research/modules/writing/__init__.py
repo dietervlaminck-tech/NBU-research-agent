@@ -70,7 +70,7 @@ def create():
     })
     job_id = start_job(
         "article_generation",
-        lambda jid: pipeline.run_article_generation(article_id, jid),
+        {"article_id": article_id},
         ref_table="articles",
         ref_id=article_id,
     )
@@ -112,7 +112,7 @@ def revise_article(article_id):
     metadata = article.get("metadata") or {}
     job_id = start_job(
         "article_revision",
-        lambda jid: pipeline.run_article_revision(article_id, instructions, jid),
+        {"article_id": article_id, "instructions": instructions},
         ref_table="articles",
         ref_id=article_id,
     )

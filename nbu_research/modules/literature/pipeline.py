@@ -12,7 +12,7 @@ nbu_research/prompts/; inline defaults below are the fallback.
 import os
 
 from ... import db
-from ...jobs import update_progress
+from ...jobs import job, update_progress
 from ...llm import complete, complete_json, research
 
 DEPTH_SEARCHES = {"quick": 5, "standard": 10, "deep": 15}
@@ -233,3 +233,8 @@ def _run(review, job_id):
         "completed_at": db.now(),
     })
     return {"review_id": review_id, "angles": len(angles), "sources": len(sources)}
+
+
+@job("literature_review")
+def _literature_review_job(job_id, review_id=None):
+    return run_literature_review(review_id, job_id)

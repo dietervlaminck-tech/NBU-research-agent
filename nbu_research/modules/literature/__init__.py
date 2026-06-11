@@ -59,7 +59,7 @@ def create():
     })
     job_id = start_job(
         "literature_review",
-        lambda jid: pipeline.run_literature_review(review_id, jid),
+        {"review_id": review_id},
         ref_table="literature_reviews",
         ref_id=review_id,
     )
