@@ -15,6 +15,11 @@ def create_app():
 
     db.init_db()
 
+    # Entra ID SSO: registers /auth/* and a global login guard (no-op in dev
+    # mode when the AZURE_* vars are unset). See nbu_research/auth.py.
+    from . import auth
+    auth.init_app(app)
+
     # Each module owns one blueprint registered under a stable url_prefix.
     from .modules.projects import bp as projects_bp
     from .modules.interviews import bp as interviews_bp

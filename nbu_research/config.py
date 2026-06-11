@@ -27,6 +27,20 @@ def anthropic_api_key():
     return os.environ.get("ANTHROPIC_API_KEY")
 
 
+# --- Microsoft Entra ID (Azure AD) SSO -----------------------------------------
+# When AZURE_CLIENT_ID is unset, authentication is disabled (dev mode): the app
+# runs as a synthetic local user so development and tests need no Azure setup.
+AZURE_CLIENT_ID = os.environ.get("AZURE_CLIENT_ID", "")
+AZURE_CLIENT_SECRET = os.environ.get("AZURE_CLIENT_SECRET", "")
+AZURE_TENANT_ID = os.environ.get("AZURE_TENANT_ID", "")
+AZURE_REDIRECT_URI = os.environ.get("AZURE_REDIRECT_URI", "")
+
+
+def auth_configured():
+    return bool(AZURE_CLIENT_ID and AZURE_CLIENT_SECRET and AZURE_TENANT_ID
+                and AZURE_REDIRECT_URI)
+
+
 # --- LSEG / Refinitiv connector (optional) -----------------------------------
 # Two session modes (see docs/REFINITIV_DESIGN.md):
 #   desktop  — the lseg-data library talks to a Refinitiv Workspace app running

@@ -26,6 +26,12 @@
                 <a href="/analysis/" class="{% if request.path.startswith('/analysis') %}active{% endif %}">Analysis</a>
                 <a href="/literature/" class="{% if request.path.startswith('/literature') %}active{% endif %}">Literature</a>
                 <a href="/writing/" class="{% if request.path.startswith('/writing') %}active{% endif %}">Writing</a>
+                {% if auth_user %}
+                <span class="muted" style="color:#C8D3D9; font-size:0.75rem; margin-left:14px;">
+                    {{ auth_user.display_name }}
+                    {% if auth_enabled %}&nbsp;·&nbsp;<a href="{{ url_for('auth.logout') }}" style="color:#FBBA20;">Logout</a>{% endif %}
+                </span>
+                {% endif %}
             </nav>
         </div>
     </header>

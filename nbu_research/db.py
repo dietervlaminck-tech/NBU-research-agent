@@ -25,6 +25,35 @@ def get_db():
 
 
 SCHEMA = """
+-- Researchers (Entra ID identities). id = the Azure object id (OID).
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT ''
+);
+
+-- Project collaboration roles: viewer < collaborator < owner.
+CREATE TABLE IF NOT EXISTS project_members (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (role IN ('viewer', 'collaborator', 'owner')),
+    added_at TEXT NOT NULL DEFAULT ''
+);
+
+-- Invitations for people who have not logged in yet; converted to a
+-- project_members row on their first login (matched by email).
+CREATE TABLE IF NOT EXISTS project_invites (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    email TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'viewer',
+    invited_at TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,

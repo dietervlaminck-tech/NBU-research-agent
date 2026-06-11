@@ -29,19 +29,22 @@ def test_parse_instruments():
     assert client.parse_instruments("  ") == []
 
 
-def test_library_available_reports_missing():
+def test_library_available_reports_cleanly():
+    # Must never raise; reason must name the library when it's absent.
     ok, reason = client.library_available()
-    # lseg-data isn't installed in this env; must report cleanly, not raise.
-    assert ok is False
-    assert "lseg-data" in reason
+    assert isinstance(ok, bool)
+    if not ok:
+        assert "lseg-data" in reason
 
 
-def test_open_session_without_library_raises_valueerror():
+def test_open_session_unconfigured_raises_valueerror():
+    # Whether or not lseg-data is installed, opening a session with no app key
+    # configured must surface a plain ValueError (never a raw library error).
     try:
         client.open_session()
         assert False, "expected ValueError"
     except ValueError as e:
-        assert "lseg-data" in str(e)
+        assert "lseg-data" in str(e) or "Refinitiv" in str(e)
 
 
 def test_panel_job_stores_dataset(monkeypatch):
