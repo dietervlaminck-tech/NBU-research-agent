@@ -6,12 +6,18 @@ SEC EDGAR (free) shipped first in Phase 2 and proves the architecture.
 
 ## Status (11 June 2026)
 
-**Connector is BUILT** (`modules/refinitiv/`), wired into the platform, and
-**dormant until configured** — it mirrors the EDGAR connector→dataset pattern,
+**Connector is BUILT, LIVE, and VERIFIED on the desktop session** (11 June
+2026). `modules/refinitiv/` mirrors the EDGAR connector→dataset pattern,
 supports both session modes, and reads all credentials from environment config
-(never committed). 55 tests pass. The live data path is written against the
-documented `lseg-data` API but is **unverified live** (this build environment
-has no library/Workspace/key).
+(never committed). 55 tests pass.
+
+**Desktop path verified end-to-end:** with `lseg-data` installed, a desktop app
+key in `.env`, and Refinitiv Workspace running, a 3-instrument fundamentals
+panel (AAPL.O / MSFT.O / ASML.AS) was pulled through the web UI into an
+analysis-ready dataset (Apple revenue $416.16B, matching SEC EDGAR). Refinitiv
+field names are auto-sanitized to analysis-safe column ids by the datasets
+store. **The platform (machine-account) path remains untested** — pending LSEG
+credentials.
 
 **Credentials received (from N. Saffari, ASC, 11 June):** a Refinitiv
 **Workspace desktop seat** — `eikon2@nyenrode.nl` + password, blocked until

@@ -10,7 +10,7 @@
   financial-panel builder by ticker + AI filing analysis). Analysis & all
   exports (incl. replication packages) now run on datasets, not just surveys.
   Verified live: a 5-firm / 7-year EDGAR panel regressed end-to-end.
-- [x] **Phase 3 (June 11):** Refinitiv connector built (pluggable desktop +
+- [x] **Phase 3 (June 11):** Refinitiv connector built & VERIFIED LIVE on desktop session (pluggable +
   platform session, dormant-until-configured, mirrors EDGAR) — see
   [REFINITIV_DESIGN.md](REFINITIV_DESIGN.md). Desktop credentials received;
   Azure machine account still pending from LSEG. Live path unverified until a

@@ -12,3 +12,7 @@ python-docx>=1.1
 openpyxl>=3.1
 gunicorn>=22.0
 certifi>=2024.0
+
+# Optional — only needed where the Refinitiv connector runs (desktop or platform).
+# Not installed by default to keep the Azure image lean. See docs/REFINITIV_DESIGN.md.
+# lseg-data>=2.0
