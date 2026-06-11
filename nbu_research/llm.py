@@ -101,11 +101,26 @@ def complete(system, prompt, model=DEFAULT_PIPELINE_MODEL, max_tokens=16000, thi
     return "".join(b.text for b in message.content if b.type == "text")
 
 
+# JSON Schema features the structured-outputs API rejects with a 400. Counts
+# and ranges belong in the prompt text instead; stripping them only loosens
+# validation, never changes the requested shape.
+_UNSUPPORTED_SCHEMA_KEYS = (
+    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+    "minLength", "maxLength", "pattern", "maxItems", "uniqueItems",
+)
+
+
 def _strict_schema(node):
-    """The API requires additionalProperties: false on every object node."""
+    """Normalize a schema to the API's supported JSON Schema subset:
+    objects need additionalProperties: false; numeric/string/array
+    constraints (minItems>1, maximum, maxLength, ...) are not supported."""
     if isinstance(node, dict):
         if node.get("type") == "object":
             node.setdefault("additionalProperties", False)
+        for key in _UNSUPPORTED_SCHEMA_KEYS:
+            node.pop(key, None)
+        if isinstance(node.get("minItems"), int) and node["minItems"] > 1:
+            node["minItems"] = 1
         for value in node.values():
             _strict_schema(value)
     elif isinstance(node, list):
