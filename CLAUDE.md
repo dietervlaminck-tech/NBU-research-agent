@@ -22,9 +22,25 @@ pip install -r requirements.txt
 cp .env.example .env          # set ANTHROPIC_API_KEY and SECRET_KEY
 python app.py                 # http://localhost:5050
 
-python -m pytest tests/ -q    # 32 tests; no API key needed
+python -m pytest tests/ -q    # 73 tests; no API key needed
 ./deploy.sh                   # Azure deploy (needs .deploy.env + az login)
+
+# Durable task queue (production; dev falls back to threads without it):
+celery -A nbu_research.worker worker --loglevel=info --concurrency=2
 ```
+
+**Environment variables** (all optional in dev; see `.env.example`):
+`ANTHROPIC_API_KEY`, `SECRET_KEY`, `NBU_DATA_DIR`; Entra SSO: `AZURE_CLIENT_ID`,
+`AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_REDIRECT_URI` (unset = auth
+disabled, synthetic dev user); Refinitiv: `LSEG_SESSION`, `LSEG_APP_KEY`,
+`LSEG_CLIENT_ID`, `LSEG_CLIENT_SECRET`; task queue: `CELERY_BROKER_URL`,
+`CELERY_RESULT_BACKEND`, `USE_EAGER_TASKS`.
+
+**⚠️ NEVER point destructive commands at `data/`** (`rm -rf data`, DROP TABLE,
+etc.) — it is the live researcher database. Tests and migration checks must
+always run against a temp dir via `NBU_DATA_DIR` (every test file does this
+before importing `nbu_research`). This rule exists because a careless
+`rm -rf data` in a compile check once destroyed real demo data.
 
 The deps that matter beyond Flask/anthropic: `pandas`, `scipy`, `statsmodels`
 (quant analysis), `pyreadstat` (SPSS .sav), `python-docx`, `openpyxl`,
@@ -41,12 +57,20 @@ communicate through the shared SQLite tables and the export registry.
 |---|---|---|
 | Data | `db.py` | Plain `sqlite3` + generic `insert/update/get/query/delete(table, …)`. JSON columns auto-encode/decode via `db.JSON_FIELDS`. Flexible shapes go in JSON columns; queried/joined fields are real columns. |
 | AI | `llm.py` | **Every** Anthropic call goes through `stream_text` / `complete` / `complete_json` / `research`. Never instantiate `anthropic.Anthropic` in a module. |
-| Jobs | `jobs.py` | Pipelines that take minutes run via `start_job(kind, fn)` (daemon thread); the UI polls `GET /api/jobs/<id>`. Synchronous stats run inline. |
+| Jobs | `jobs.py` | Pipelines register with `@jobs.job(kind)` and run via `start_job(kind, payload_dict)` — Celery+Redis when `CELERY_BROKER_URL` is set, in-process thread otherwise. Payloads must be JSON-serializable. The UI polls `GET /api/jobs/<id>`. Synchronous stats run inline. |
 | Config | `config.py` | Model IDs + paths. |
 
 Modules: `projects` (`/`), `interviews` (`/interviews`), `surveys`
-(`/surveys`), `analysis` (`/analysis`), `literature` (`/literature`),
+(`/surveys`), `datasets` (`/datasets`), `edgar` (`/edgar`), `refinitiv`
+(`/refinitiv`), `analysis` (`/analysis`), `literature` (`/literature`),
 `writing` (`/writing`), `exports` (`/exports`).
+
+Cross-cutting (v0.1.1): `auth.py` (Entra ID SSO + per-project roles —
+`current_user`, `check_project_role`, public-endpoint allowlist),
+`worker.py` (Celery app; jobs registered via `@jobs.job(kind)` with
+JSON-serializable payloads), `ai_usage_log` (written centrally by `llm.py`,
+feeds the per-article AI disclosure), `prompts/methods_advisor.py`
+(pre-study design review on the project hub).
 
 ## Conventions that bite if missed
 
@@ -73,13 +97,14 @@ Modules: `projects` (`/`), `interviews` (`/interviews`), `surveys`
 
 ## Deployment shape (don't break these invariants)
 
-Single gunicorn worker, many threads (`startup.sh`); SQLite in WAL mode;
-background jobs are in-process daemon threads. This is deliberate for a
-single-institution deployment. **Do not scale to multiple instances** — that
-splits the SQLite DB and orphans jobs. Long pipelines stay under Azure's ~230s
-request limit because they run as background jobs and the browser polls; only
-interview SSE holds a live connection. The Postgres + queue migration path is
-in `docs/ROADMAP.md` v0.4.
+Single gunicorn web worker, many threads (`startup.sh`); SQLite in WAL mode.
+Background jobs: Celery + Redis in production (separate worker container,
+`celery -A nbu_research.worker worker`) so web restarts don't kill pipelines;
+in-process daemon threads in dev. **Do not scale the web app to multiple
+instances** — that splits the SQLite DB. Long pipelines stay under Azure's
+~230s request limit because they run as background jobs and the browser polls;
+only interview SSE holds a live connection. The Postgres migration path is in
+`docs/ROADMAP.md` v0.4.
 
 ## When extending
 

@@ -1,5 +1,24 @@
 # Roadmap
 
+## v0.1.1 — multi-user foundation (June 11, 2026)
+
+- [x] **Microsoft Entra ID SSO** as the sole researcher login (msal,
+  authorization-code flow, tenant validation, app roles); respondent links
+  stay public; dev mode without Azure config — see
+  [ENTRA_SETUP.md](ENTRA_SETUP.md)
+- [x] **Per-project roles** (viewer < collaborator < owner): members UI,
+  email invites with pending-invite conversion on first login, enforcement
+  across project, analysis, dataset and study routes
+- [x] **AI disclosure statements**: platform-wide `ai_usage_log` of every AI
+  call; per-article disclosure page with APA / Springer / generic formats
+  and copy-to-clipboard
+- [x] **Durable task queue**: Celery + Redis with idempotent retry; all 7
+  pipelines converted to registered jobs; thread fallback keeps the
+  single-process dev flow (`USE_EAGER_TASKS`)
+- [x] **Methods advisor**: pre-study methodological peer review (paradigm /
+  method / analysis / power checks) on the project hub; advisory only,
+  stored on the project
+
 ## Stakeholder track (M. Erkens, June 2026 — target: June 22)
 
 - [x] **Phase 1 (June 11):** Stata (.dta), R (.rds), Jupyter notebook exports;

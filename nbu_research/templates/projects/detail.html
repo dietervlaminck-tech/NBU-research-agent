@@ -9,8 +9,8 @@
         <div class="card">
             <h3>Collect data</h3>
             <p class="muted">AI interviews and surveys distributed to respondents.</p>
-            <a class="btn btn-primary btn-sm" href="{{ url_for('interviews.index') }}?project={{ project.id }}">New interview study</a>
-            <a class="btn btn-secondary btn-sm" href="{{ url_for('surveys.index') }}?project={{ project.id }}">New survey</a>
+            <button class="btn btn-primary btn-sm" onclick="openAdvisor('interviews')">New interview study</button>
+            <button class="btn btn-secondary btn-sm" onclick="openAdvisor('survey')">New survey</button>
         </div>
         <div class="card">
             <h3>Datasets</h3>
@@ -29,6 +29,47 @@
             <p class="muted">Generate article drafts from your data and sources.</p>
             <a class="btn btn-primary btn-sm" href="{{ url_for('writing.index') }}?project={{ project.id }}">New article</a>
         </div>
+    </div>
+
+    <!-- Methods advisor panel: advisory pre-check before committing to a design -->
+    <div class="card" id="advisorPanel" style="display:none; border-left:4px solid #FBBA20;">
+        <div class="flex-between">
+            <h3>Methods check <span class="muted" style="font-weight:normal;">— advisory, you can always proceed</span></h3>
+            <button class="btn btn-sm btn-outline" onclick="closeAdvisor()">×</button>
+        </div>
+        <div class="grid-2 mt-16">
+            <div class="form-group">
+                <label>Research question</label>
+                <textarea id="advQuestion" rows="2">{{ project.research_question }}</textarea>
+            </div>
+            <div class="form-group">
+                <label>Planned analysis (your own words)</label>
+                <textarea id="advAnalysis" rows="2" placeholder="e.g. regression of satisfaction on trust items; thematic coding of ~8 interviews"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Research paradigm</label>
+                <select id="advParadigm">
+                    <option value="not sure">Not sure</option>
+                    <option value="positivist">Positivist</option>
+                    <option value="interpretivist">Interpretivist</option>
+                    <option value="critical">Critical</option>
+                    <option value="pragmatist">Pragmatist</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Intended method</label>
+                <select id="advMethod">
+                    <option value="not sure">Not sure</option>
+                    <option value="survey">Survey</option>
+                    <option value="interviews">Interviews</option>
+                    <option value="mixed">Mixed methods</option>
+                    <option value="dataset">Existing dataset</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="advRunBtn" onclick="runAdvisor()">Run methods check</button>
+        <a class="btn btn-secondary btn-sm" id="advSkip" href="#">Skip check &amp; proceed</a>
+        <div id="advisorResult" class="mt-16"></div>
     </div>
 
     <div class="section-title">Studies</div>
@@ -161,4 +202,79 @@
     </table>
     {% else %}<div class="empty-state">No articles yet.</div>{% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var ADVISOR_URL = "{{ url_for('projects.methods_advisor_check', project_id=project.id) }}";
+var DESTINATIONS = {
+    interviews: "{{ url_for('interviews.index') }}?project={{ project.id }}",
+    survey: "{{ url_for('surveys.index') }}?project={{ project.id }}"
+};
+var advisorTarget = "interviews";
+
+function openAdvisor(target) {
+    advisorTarget = target;
+    var panel = document.getElementById("advisorPanel");
+    panel.style.display = "block";
+    document.getElementById("advMethod").value = target === "survey" ? "survey" : "interviews";
+    document.getElementById("advSkip").href = DESTINATIONS[target];
+    document.getElementById("advisorResult").innerHTML = "";
+    panel.scrollIntoView({behavior: "smooth", block: "start"});
+}
+function closeAdvisor() {
+    document.getElementById("advisorPanel").style.display = "none";
+}
+function esc(s) {
+    var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML;
+}
+function runAdvisor() {
+    var btn = document.getElementById("advRunBtn");
+    btn.disabled = true; btn.textContent = "Checking… (±30s)";
+    fetch(ADVISOR_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            research_question: document.getElementById("advQuestion").value,
+            paradigm: document.getElementById("advParadigm").value,
+            intended_method: document.getElementById("advMethod").value,
+            planned_analysis: document.getElementById("advAnalysis").value
+        })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+        btn.disabled = false; btn.textContent = "Run methods check";
+        var out = document.getElementById("advisorResult");
+        if (res.error) { out.innerHTML = '<p class="muted">' + esc(res.error) + '</p>'; return; }
+        var labels = {proceed: ["badge-completed", "Proceed"],
+                      proceed_with_caution: ["badge-pending", "Proceed with caution"],
+                      reconsider_design: ["badge-error", "Reconsider design"]};
+        var l = labels[res.overall_assessment] || ["badge-pending", res.overall_assessment];
+        var html = '<p><span class="badge ' + l[0] + '">' + esc(l[1]) + '</span></p>';
+        (res.flags || []).forEach(function (f) {
+            html += '<div class="card" style="border-left:4px solid ' +
+                (f.severity === "error" ? "#c0392b" : "#FBBA20") + ';">' +
+                '<strong>' + esc(f.category) + '</strong> <span class="badge ' +
+                (f.severity === "error" ? "badge-error" : "badge-pending") + '">' + esc(f.severity) + '</span>' +
+                '<p>' + esc(f.explanation) + '</p>' +
+                '<p class="muted">Suggestion: ' + esc(f.suggestion) + '</p></div>';
+        });
+        if (!(res.flags || []).length) {
+            html += '<p class="muted">No methodological flags raised.</p>';
+        }
+        if ((res.recommended_resources || []).length) {
+            html += '<p class="mt-8"><strong>Recommended reading:</strong></p><ul>';
+            res.recommended_resources.forEach(function (r) {
+                html += '<li>' + esc(r.title) + ' <span class="muted">— ' + esc(r.reason) + '</span></li>';
+            });
+            html += '</ul>';
+        }
+        html += '<p class="mt-16"><a class="btn btn-primary" href="' + DESTINATIONS[advisorTarget] +
+                '">Proceed to ' + (advisorTarget === "survey" ? "survey builder" : "interview study") + '</a></p>';
+        out.innerHTML = html;
+    }).catch(function () {
+        btn.disabled = false; btn.textContent = "Run methods check";
+        document.getElementById("advisorResult").innerHTML =
+            '<p class="muted">The check failed — you can proceed without it.</p>';
+    });
+}
+</script>
 {% endblock %}

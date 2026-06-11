@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS projects (
     description TEXT NOT NULL DEFAULT '',
     research_question TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active',
+    methods_check_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
 );
 
@@ -236,11 +237,16 @@ def _migrate(conn):
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(analyses)")}
     if "dataset_id" not in cols:
         conn.execute("ALTER TABLE analyses ADD COLUMN dataset_id TEXT")
+    pcols = {r["name"] for r in conn.execute("PRAGMA table_info(projects)")}
+    if "methods_check_json" not in pcols:
+        conn.execute(
+            "ALTER TABLE projects ADD COLUMN methods_check_json TEXT NOT NULL DEFAULT '{}'")
 
 
 # --- generic row helpers -----------------------------------------------------
 
 JSON_FIELDS = {
+    "projects": ["methods_check_json"],
     "studies": ["config"],
     "sessions": ["messages"],
     "survey_responses": ["answers"],

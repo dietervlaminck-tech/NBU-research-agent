@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort
 
-from .. import db
+from .. import db, llm
 from ..auth import (
     current_user, project_role, require_project_role, check_project_role,
 )
+from ..prompts import methods_advisor
 
 bp = Blueprint("projects", __name__, template_folder="../templates")
 
@@ -127,6 +128,47 @@ def delete_invite(project_id, invite_id):
     if inv and inv["project_id"] == project_id:
         db.delete("project_invites", invite_id)
     return redirect(url_for("projects.project_detail", project_id=project_id))
+
+
+@bp.route("/projects/<project_id>/methods-advisor", methods=["POST"])
+@require_project_role("collaborator")
+def methods_advisor_check(project_id):
+    """Advisory methodological review of a planned study design. Never blocks
+    — the result is stored on the project for later reference and returned to
+    the New Study panel on the project page."""
+    project = db.get("projects", project_id)
+    if not project:
+        abort(404)
+    body = request.get_json(silent=True) or {}
+    research_question = (body.get("research_question") or
+                         project.get("research_question") or "").strip()
+    paradigm = (body.get("paradigm") or "not sure").strip()
+    intended_method = (body.get("intended_method") or "not sure").strip()
+    planned_analysis = (body.get("planned_analysis") or "").strip()
+
+    try:
+        result = llm.complete_json(
+            methods_advisor.SYSTEM,
+            methods_advisor.build_prompt(research_question, paradigm,
+                                         intended_method, planned_analysis),
+            methods_advisor.SCHEMA,
+            max_tokens=4000,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Methods advisor unavailable: {e}"}), 503
+
+    record = {
+        "input": {
+            "research_question": research_question, "paradigm": paradigm,
+            "intended_method": intended_method,
+            "planned_analysis": planned_analysis,
+        },
+        "result": result,
+        "checked_at": db.now(),
+        "checked_by": (current_user() or {}).get("user_id"),
+    }
+    db.update("projects", project_id, {"methods_check_json": record})
+    return jsonify(result)
 
 
 @bp.route("/api/projects/<project_id>", methods=["DELETE"])
