@@ -60,10 +60,11 @@
 - [ ] PDF export of articles (LaTeX toolchain or weasyprint)
 - [ ] OSF (Open Science Framework) project export for preregistration packages
 
-## v0.4 — collaboration & scale
-- [ ] Researcher accounts + per-project access (currently single-tenant by deployment)
-- [ ] Postgres + task queue (replace SQLite/threads) if multi-user load requires it
-- [ ] Audit trail for AI assistance (which model produced what, for disclosure statements)
+## v0.4 — scale & compliance
+*(Researcher accounts, per-project access, the AI audit trail, and the durable
+task queue originally planned here shipped early in v0.1.1.)*
+- [ ] Postgres migration (replace SQLite) if multi-user load requires it —
+  the Celery/Redis queue is already in place
 - [ ] GDPR tooling: respondent consent records, data retention policies, anonymization pass over transcripts
 
 ## Continuous
