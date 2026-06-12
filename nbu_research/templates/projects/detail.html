@@ -211,6 +211,15 @@
         {% endif %}
     </div>
 
+    <div class="section-title">Preregistration &amp; sharing</div>
+    <div class="card">
+        <p class="muted">Bundle this project's research question, methods check,
+        instruments and codebooks into a preregistration package — or push it
+        to your OSF project.</p>
+        <a class="btn btn-primary btn-sm" href="/exports/project/{{ project.id }}">Preregistration package</a>
+        <a class="btn btn-secondary btn-sm" href="/osf/?project={{ project.id }}">Push to OSF</a>
+    </div>
+
     <div class="section-title">Articles</div>
     {% if articles %}
     <table class="table">

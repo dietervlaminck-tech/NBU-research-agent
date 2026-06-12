@@ -238,3 +238,75 @@ def _run(review, job_id):
 @job("literature_review")
 def _literature_review_job(job_id, review_id=None):
     return run_literature_review(review_id, job_id)
+
+
+# --- Re-synthesis (v0.3): synthesis phase only, grounded in PDF fulltext ------
+
+FULLTEXT_EXCERPT_CHARS = 8000
+
+
+def _source_line(s):
+    return (
+        f"- {s.get('authors') or 'Unknown'} ({s.get('year') or 'n.d.'}). {s.get('title')}. "
+        f"{s.get('venue') or ''}. {s.get('doi') or s.get('url') or ''}"
+    ).strip()
+
+
+def run_resynthesize(review_id, job_id):
+    """Re-run ONLY the synthesis phase over the stored sources table, adding
+    labelled excerpts of ingested PDF fulltext as grounding material."""
+    review = db.get("literature_reviews", review_id)
+    if not review:
+        raise ValueError(f"Literature review {review_id} not found")
+    sources = db.query(
+        "sources", "review_id = ?", (review_id,), order="year DESC, title ASC"
+    )
+    if not sources:
+        raise ValueError("This review has no sources to synthesize from")
+
+    question = review["research_question"]
+    scope_text = _scope_text(review.get("scope") or {})
+    source_list = "\n".join(_source_line(s) for s in sources)
+
+    excerpts = []
+    for s in sources:
+        fulltext = (s.get("fulltext") or "").strip()
+        if not fulltext:
+            continue
+        excerpts.append(
+            f"### Full-text excerpt — {s.get('authors') or 'Unknown'} "
+            f"({s.get('year') or 'n.d.'}). {s.get('title')}\n"
+            f"{fulltext[:FULLTEXT_EXCERPT_CHARS]}"
+        )
+    excerpt_blob = "\n\n".join(excerpts) if excerpts else "(no full texts ingested)"
+
+    update_progress(
+        job_id, 0.3,
+        f"Re-synthesizing the report from {len(sources)} sources "
+        f"({len(excerpts)} with full text)",
+    )
+    report_md = complete(
+        system=load_prompt("literature_synthesis", DEFAULT_SYNTHESIS_SYSTEM),
+        prompt=(
+            f"Research question:\n{question}\n\n"
+            f"Scope:\n{scope_text}\n\n"
+            f"Source list (the ONLY sources you may cite):\n{source_list}\n\n"
+            "Full-text excerpts from ingested PDFs (primary grounding material — "
+            "prefer these over your priors when they conflict; each excerpt is "
+            "labelled with its source):\n"
+            f"{excerpt_blob}\n\n"
+            "Write the full literature review report in markdown."
+        ),
+    )
+
+    db.update("literature_reviews", review_id, {
+        "report_md": report_md,
+        "status": "done",
+        "completed_at": db.now(),
+    })
+    return {"review_id": review_id}
+
+
+@job("resynthesize_review")
+def _resynthesize_review_job(job_id, review_id=None):
+    return run_resynthesize(review_id, job_id)

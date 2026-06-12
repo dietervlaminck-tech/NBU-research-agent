@@ -62,13 +62,25 @@
   Qualtrics 3-header CSV auto-detection; SPSS .sav/Stata .dta upload shipped in
   the Phase 2 datasets module
 
-## v0.3 — integrations depth
-- [ ] Qualtrics REST API: push surveys, pull responses live
-- [ ] Reference managers: Zotero/Mendeley API sync for sources
-- [ ] Scholarly APIs for literature: OpenAlex / Semantic Scholar / Crossref enrichment (DOIs, citation counts, PDFs where open access)
-- [ ] PDF ingestion: upload papers, ground the literature review in full texts
-- [ ] PDF export of articles (LaTeX toolchain or weasyprint)
-- [ ] OSF (Open Science Framework) project export for preregistration packages
+## v0.3 — integrations depth (June 12, 2026)
+
+All external accounts are **per-user**: researchers connect their own
+Zotero/Qualtrics/OSF keys at Settings → Connections after Entra login.
+
+- [x] Qualtrics REST API: push surveys (QSF import), pull responses back as
+  analyzable datasets — verified against mocked API responses; first real
+  push/pull needs a connected Qualtrics account
+- [x] Zotero: push review sources to a collection, import collections as
+  sources (DOI/title dedupe) — mock-verified; Mendeley remains a dormant slot
+  (its API needs an Elsevier-approved OAuth app)
+- [x] OpenAlex + Crossref enrichment of sources (DOI, year, venue, citation
+  counts, OA links) — **verified live** against the real APIs
+- [x] PDF ingestion: upload papers → extracted full text grounds a
+  re-synthesized review
+- [x] PDF export of articles (reportlab — xhtml2pdf rejected: needs system
+  cairo, unavailable on the slim Azure image; latin-1 glyph normalization)
+- [x] OSF: preregistration package (.zip — verified live) + push to an OSF
+  project via personal token (mock-verified)
 
 ## v0.4 — scale & compliance
 *(Researcher accounts, per-project access, the AI audit trail, and the durable

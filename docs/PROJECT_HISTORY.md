@@ -110,6 +110,18 @@ co-occurrence on the demo interviews. NOTE: the regenerated demo study id is
 6eff78d31eb5 (ids changed when demo data was rebuilt after the data-loss
 incident).
 
+### June 12 — v0.3: integrations depth
+
+Per-user connections spine (`credentials.py` + Settings → Connections, keyed
+to the Entra identity — Dieter's design) then four parallel agents: Qualtrics
+REST (push QSF / pull responses→datasets), Zotero push/pull (Mendeley dormant
+— Elsevier OAuth app needed), OpenAlex+Crossref enrichment (verified live:
+Hardin 1968, 22,882 citations) + PDF ingestion with grounded re-synthesis,
+article PDF export (reportlab; xhtml2pdf rejected — needs system cairo) + OSF
+preregistration packages (zip verified live; API push mock-verified).
+175 tests. Connector API paths beyond enrichment are mock-verified until real
+accounts are connected.
+
 ## Incidents & lessons (read these before touching anything)
 
 1. **`rm -rf data` destroyed the live database (June 11).** A compile check

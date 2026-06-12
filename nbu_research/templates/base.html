@@ -28,6 +28,7 @@
                 <a href="/writing/" class="{% if request.path.startswith('/writing') %}active{% endif %}">Writing</a>
                 {% if auth_user %}
                 <span class="muted" style="color:#C8D3D9; font-size:0.75rem; margin-left:14px;">
+                    <a href="{{ url_for('settings.connections') }}" title="Your connections" style="color:#C8D3D9; text-decoration:none;">⚙</a>&nbsp;
                     {{ auth_user.display_name }}
                     {% if auth_enabled %}&nbsp;·&nbsp;<a href="{{ url_for('auth.logout') }}" style="color:#FBBA20;">Logout</a>{% endif %}
                 </span>

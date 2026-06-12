@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, jsonif
 
 from ... import db
 from ...jobs import start_job, get_job
-from . import pipeline
+from . import enrich, pdfs, pipeline
 
 bp = Blueprint("literature", __name__)
 
@@ -70,6 +70,10 @@ def create():
 
 @bp.route("/review/<review_id>")
 def review_detail(review_id):
+    return _render_detail(review_id)
+
+
+def _render_detail(review_id, pdf_results=None):
     review = db.get("literature_reviews", review_id)
     if not review:
         return "Literature review not found", 404
@@ -79,14 +83,57 @@ def review_detail(review_id):
     job_id = (review.get("scope") or {}).get("job_id")
     if job_id and review["status"] in ("pending", "running"):
         job = get_job(job_id)
+    # Auxiliary background job (enrichment / re-synthesis) passed via ?job=…
+    aux_job = None
+    aux_job_id = request.args.get("job", "")
+    if aux_job_id:
+        aux_job = get_job(aux_job_id)
+    enriched_stamps = [
+        (s.get("meta") or {}).get("enriched_at") for s in sources
+        if isinstance(s.get("meta"), dict)
+    ]
+    last_enriched = max([t for t in enriched_stamps if t], default="")
+    has_fulltext = any((s.get("fulltext") or "").strip() for s in sources)
     return render_template(
         "literature/detail.html",
         review=review,
         sources=sources,
         project=project,
         job=job,
+        aux_job=aux_job,
+        last_enriched=last_enriched,
+        has_fulltext=has_fulltext,
+        pdf_results=pdf_results,
         report_html=_render_md(review["report_md"]),
     )
+
+
+@bp.route("/review/<review_id>/enrich", methods=["POST"])
+def enrich_review(review_id):
+    if not db.get("literature_reviews", review_id):
+        return "Literature review not found", 404
+    job_id = enrich.start_enrich_job(review_id)
+    return redirect(url_for("literature.review_detail", review_id=review_id, job=job_id))
+
+
+@bp.route("/review/<review_id>/pdfs", methods=["POST"])
+def upload_pdfs(review_id):
+    review = db.get("literature_reviews", review_id)
+    if not review:
+        return "Literature review not found", 404
+    results = pdfs.ingest_uploaded_pdfs(review, request.files.getlist("pdfs"))
+    return _render_detail(review_id, pdf_results=results)
+
+
+@bp.route("/review/<review_id>/resynthesize", methods=["POST"])
+def resynthesize(review_id):
+    if not db.get("literature_reviews", review_id):
+        return "Literature review not found", 404
+    job_id = start_job(
+        "resynthesize_review", {"review_id": review_id},
+        ref_table="literature_reviews", ref_id=review_id,
+    )
+    return redirect(url_for("literature.review_detail", review_id=review_id, job=job_id))
 
 
 @bp.route("/api/review/<review_id>", methods=["DELETE"])

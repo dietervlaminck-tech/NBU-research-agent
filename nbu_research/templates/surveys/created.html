@@ -97,6 +97,29 @@
     </div>
 
     <div class="card">
+        <h3>Prefer Qualtrics?</h3>
+        {% if not qualtrics_connected %}
+        <p class="muted">You can also run this survey in your own Qualtrics
+            account. <a href="/settings/connections">Connect Qualtrics in
+            Settings &rarr; Connections</a>, then push the survey from here or
+            the dashboard.</p>
+        {% elif study.config.qualtrics %}
+        <p class="muted">Pushed to Qualtrics as
+            <strong>{{ study.config.qualtrics.qualtrics_survey_id }}</strong>
+            on {{ (study.config.qualtrics.pushed_at or '')[:16] | replace('T', ' ') }}.
+            Distribute it from your Qualtrics account; pull responses back from the
+            <a href="{{ url_for('surveys.dashboard', study_id=study.id) }}">dashboard</a>.</p>
+        {% else %}
+        <p class="muted">Push this survey to your Qualtrics account and
+            distribute it there. Responses can be pulled back as an analyzable
+            dataset from the dashboard.</p>
+        <form method="post" action="{{ url_for('surveys.qualtrics_push', study_id=study.id) }}" class="mt-16">
+            <button type="submit" class="btn btn-secondary">Push to Qualtrics</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <div class="card">
         <h3>{{ study.title }}</h3>
         <div class="meta">Created {{ study.created_at[:10] }}</div>
         {% if study.research_question %}

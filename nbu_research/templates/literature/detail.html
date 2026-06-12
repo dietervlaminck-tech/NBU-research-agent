@@ -22,6 +22,9 @@
         <div style="display:flex;gap:8px;align-items:center;">
             {% if review.status == 'done' %}
             <a href="/exports/review/{{ review.id }}" class="btn btn-secondary btn-sm">Export</a>
+            <form method="post" action="/zotero/push/{{ review.id }}" style="display:inline;">
+                <button type="submit" class="btn btn-outline btn-sm">Push to Zotero</button>
+            </form>
             {% endif %}
             <button class="btn btn-secondary btn-sm" onclick="deleteReview()">Delete</button>
         </div>
@@ -42,6 +45,65 @@
     </div>
     {% endif %}
 
+    {% if aux_job and aux_job.status in ('pending', 'running') %}
+    <div class="card" id="auxJobCard">
+        <h3>Background task running</h3>
+        <p class="muted" id="auxJobMessage">{{ aux_job.message or 'Working…' }}</p>
+        <div class="progress-track mt-16">
+            <div class="progress-fill" id="auxProgressFill" style="width: {{ ((aux_job.progress or 0) * 100) | round }}%;"></div>
+        </div>
+    </div>
+    {% elif aux_job and aux_job.status == 'error' %}
+    <div class="card">
+        <h3>Background task failed</h3>
+        <p class="muted">{{ aux_job.message }}</p>
+    </div>
+    {% endif %}
+
+    {% if review.status not in ('pending', 'running') %}
+    <div class="section-title">Enrich &amp; ground</div>
+    <div class="card">
+        <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;">
+            <div>
+                <form method="post" action="{{ url_for('literature.enrich_review', review_id=review.id) }}">
+                    <button class="btn btn-primary btn-sm" type="submit" {% if not sources %}disabled{% endif %}>Enrich sources (Crossref + OpenAlex)</button>
+                </form>
+                <div class="muted" style="margin-top:6px;">
+                    {% if last_enriched %}Last enriched: {{ last_enriched }}{% else %}Fills DOIs, years, venues; adds citation counts and open-access links.{% endif %}
+                </div>
+            </div>
+            <form method="post" action="{{ url_for('literature.upload_pdfs', review_id=review.id) }}" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Upload PDFs (each becomes a source with full text)</label>
+                    <input type="file" name="pdfs" multiple accept="application/pdf,.pdf">
+                </div>
+                <button class="btn btn-secondary btn-sm" type="submit">Upload PDFs</button>
+            </form>
+            {% if has_fulltext %}
+            <div>
+                <form method="post" action="{{ url_for('literature.resynthesize', review_id=review.id) }}">
+                    <button class="btn btn-secondary btn-sm" type="submit">Re-synthesize report with full text</button>
+                </form>
+                <div class="muted" style="margin-top:6px;">Rewrites the report grounded in the ingested PDF texts.</div>
+            </div>
+            {% endif %}
+        </div>
+        {% if pdf_results %}
+        <div class="mt-16">
+            <strong>Upload results</strong>
+            <ul style="margin:8px 0 0 0;padding-left:20px;">
+                {% for r in pdf_results %}
+                <li>
+                    <span class="badge badge-{{ 'completed' if r.ok else 'error' }}">{{ 'OK' if r.ok else 'rejected' }}</span>
+                    {% if r.filename %}<strong>{{ r.filename }}</strong> — {% endif %}{{ r.message }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% if review.report_md %}
     <div class="section-title">Report</div>
     <div class="card markdown-body">{{ report_html | safe }}</div>
@@ -52,19 +114,24 @@
     <div class="card" style="overflow-x:auto;">
         <table class="table">
             <thead>
-                <tr><th>Source</th><th>Year</th><th>Venue</th><th>Notes</th><th>Link</th></tr>
+                <tr><th>Source</th><th>Year</th><th>Venue</th><th>Citations</th><th>Notes</th><th>Links</th></tr>
             </thead>
             <tbody>
                 {% for s in sources %}
+                {% set oa = (s.meta or {}).get('openalex') or {} %}
                 <tr>
-                    <td><strong>{{ s.title }}</strong><div class="muted">{{ s.authors }}</div>
+                    <td><strong>{{ s.title }}</strong>
+                        {% if (s.fulltext or '') | trim %}<span class="badge badge-completed">PDF</span>{% endif %}
+                        <div class="muted">{{ s.authors }}</div>
                         {% if s.abstract %}<div class="muted">{{ s.abstract }}</div>{% endif %}</td>
                     <td>{{ s.year }}</td>
                     <td>{{ s.venue }}</td>
+                    <td>{% if oa.get('cited_by_count') is not none %}{{ oa.get('cited_by_count') }}{% else %}<span class="muted">—</span>{% endif %}</td>
                     <td class="muted">{{ s.notes }}</td>
                     <td>
                         {% if s.doi %}<a href="https://doi.org/{{ s.doi | replace('https://doi.org/', '') }}" target="_blank">DOI</a>
                         {% elif s.url %}<a href="{{ s.url }}" target="_blank">URL</a>{% endif %}
+                        {% if oa.get('oa_pdf_url') %}<a href="{{ oa.get('oa_pdf_url') }}" target="_blank">OA</a>{% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -83,6 +150,26 @@ function deleteReview() {
         .then(function () { window.location = "{{ url_for('literature.index') }}"; });
 }
 </script>
+{% if aux_job and aux_job.status in ('pending', 'running') %}
+<script>
+(function () {
+    var timer = setInterval(poll, 2500);
+    function poll() {
+        fetch("/api/jobs/{{ aux_job.id }}").then(function (r) { return r.json(); }).then(function (job) {
+            var fill = document.getElementById("auxProgressFill");
+            var msg = document.getElementById("auxJobMessage");
+            if (fill) fill.style.width = Math.round((job.progress || 0) * 100) + "%";
+            if (msg && job.message) msg.textContent = job.message;
+            if (job.status === "done" || job.status === "error") {
+                clearInterval(timer);
+                window.location = "{{ url_for('literature.review_detail', review_id=review.id) }}";
+            }
+        }).catch(function () {});
+    }
+    poll();
+})();
+</script>
+{% endif %}
 {% if review.status in ('pending', 'running') and review.scope.job_id %}
 <script>
 (function () {

@@ -165,7 +165,8 @@ def _export(key, obj_id):
 def test_registry_shape():
     assert exports.EXPORTERS
     for key, spec in exports.EXPORTERS.items():
-        assert spec["applies_to"] in ("study", "article", "review", "analysis"), key
+        assert spec["applies_to"] in ("study", "article", "review", "analysis",
+                                      "project"), key
         assert spec["label"], key
         assert callable(spec["fn"]), key
 

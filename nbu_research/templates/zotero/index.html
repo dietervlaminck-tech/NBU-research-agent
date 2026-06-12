@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Zotero — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Zotero</h1>
+        <p>Push literature review sources to your Zotero library, or import a Zotero collection as sources.</p>
+    </div>
+
+    {% if not connected %}
+    <div class="card" style="border-left:4px solid #FBBA20;">
+        <h3>Not connected</h3>
+        <p class="muted">Connect your Zotero account (API key + user ID) to push and pull sources.
+            Each researcher uses their own Zotero credentials.</p>
+        <p class="mt-8"><a class="btn btn-primary" href="/settings/connections">Connect Zotero</a></p>
+    </div>
+    {% else %}
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;">
+        <p class="muted">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if push_result %}
+    <div class="card" style="border-left:4px solid #047857;">
+        <h3>Push complete — {{ push_result.review }}</h3>
+        <p>
+            <span class="badge badge-completed">{{ push_result.pushed }} pushed</span>
+            <span class="badge badge-pending">{{ push_result.skipped }} already in Zotero</span>
+            {% if push_result.failed %}<span class="badge badge-error">{{ push_result.failed }} failed</span>{% endif %}
+        </p>
+    </div>
+    {% endif %}
+
+    {% if pull_result %}
+    <div class="card" style="border-left:4px solid #047857;">
+        <h3>Import complete — {{ pull_result.collection }}</h3>
+        <p>
+            <span class="badge badge-completed">{{ pull_result.imported }} imported</span>
+            <span class="badge badge-pending">{{ pull_result.skipped }} duplicates skipped</span>
+        </p>
+        <p class="muted mt-8">
+            {% if pull_result.new_review %}Created a new review:{% else %}Added to review:{% endif %}
+            <a href="/literature/review/{{ pull_result.review_id }}">{{ pull_result.review }}</a>
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>Push a review to Zotero</h3>
+            <p class="muted">Creates (or reuses) a Zotero collection named after the review and
+                pushes every source that is not in Zotero yet.</p>
+            {% if reviews %}
+            <form method="post" id="push-form" action="">
+                <div class="form-group">
+                    <label>Literature review</label>
+                    <select name="review_id" id="push-review">
+                        {% for r in reviews %}
+                        <option value="{{ r.id }}">{{ r.label }} ({{ r.source_count }} source{{ '' if r.source_count == 1 else 's' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Push to Zotero</button>
+            </form>
+            {% else %}
+            <div class="empty-state">No literature reviews yet. Run one in the <a href="/literature/">Literature</a> module first.</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h3>Import a Zotero collection</h3>
+            <p class="muted">Imports the collection's items as sources. Duplicates
+                (same DOI or title) within the target review are skipped.</p>
+            {% if collections %}
+            <form method="post" action="{{ url_for('zotero.pull') }}">
+                <div class="form-group">
+                    <label>Zotero collection</label>
+                    <select name="collection">
+                        {% for c in collections %}
+                        <option value="{{ c.key }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Import into</label>
+                    <select name="target">
+                        <option value="new">New literature review</option>
+                        {% for r in reviews %}
+                        <option value="{{ r.id }}">{{ r.label }} ({{ r.source_count }} source{{ '' if r.source_count == 1 else 's' }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Project for a new review (optional)</label>
+                    <select name="project_id">
+                        <option value="">(none)</option>
+                        {% for p in projects %}
+                        <option value="{{ p.id }}">{{ p.title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Import sources</button>
+            </form>
+            {% else %}
+            <div class="empty-state">No collections found in your Zotero library{% if error %} (see the message above){% endif %}.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+{% if connected %}
+<script>
+// The push URL embeds the chosen review id (/zotero/push/<id>).
+const pushForm = document.getElementById('push-form');
+if (pushForm) {
+    pushForm.addEventListener('submit', function () {
+        const id = document.getElementById('push-review').value;
+        pushForm.action = '/zotero/push/' + encodeURIComponent(id);
+    });
+}
+</script>
+{% endif %}
+{% endblock %}

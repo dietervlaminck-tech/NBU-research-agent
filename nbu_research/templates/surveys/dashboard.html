@@ -33,6 +33,72 @@
         </div>
     </div>
 
+    <div class="card">
+        <div class="flex-between mb-8">
+            <h3>Qualtrics</h3>
+            {% if study.config.qualtrics %}
+            <span class="badge badge-active">pushed</span>
+            {% endif %}
+        </div>
+
+        {% if qualtrics_error == 'not_connected' %}
+        <div class="card" style="border-left:4px solid #c0392b; margin-bottom:12px;">
+            <p class="muted">Your Qualtrics account is not connected.
+                <a href="/settings/connections">Connect it in Settings &rarr; Connections</a> first.</p>
+        </div>
+        {% elif qualtrics_error %}
+        <div class="card" style="border-left:4px solid #c0392b; margin-bottom:12px;">
+            <p class="muted">{{ qualtrics_error }}</p>
+        </div>
+        {% endif %}
+        {% if qualtrics_notice == 'pushed' %}
+        <div class="card" style="border-left:4px solid #2e7d32; margin-bottom:12px;">
+            <p class="muted">Survey pushed to Qualtrics
+                {%- if study.config.qualtrics %} (id {{ study.config.qualtrics.qualtrics_survey_id }}){% endif %}.
+                Activate and distribute it from your Qualtrics account, then pull responses back here.</p>
+        </div>
+        {% endif %}
+
+        {% if not qualtrics_connected %}
+        <p class="muted">Push this survey to your own Qualtrics account and pull
+            responses back as an analyzable dataset.
+            <a href="/settings/connections">Connect your Qualtrics account</a> to enable this.</p>
+        {% else %}
+        {% if study.config.qualtrics %}
+        <p class="muted">Pushed to Qualtrics as
+            <strong>{{ study.config.qualtrics.qualtrics_survey_id }}</strong>
+            on {{ (study.config.qualtrics.pushed_at or '')[:16] | replace('T', ' ') }}.</p>
+        {% else %}
+        <p class="muted">Not pushed yet. Pushing imports this survey into your
+            Qualtrics account (it stays inactive until you activate it there).</p>
+        {% endif %}
+        <div class="mt-16" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <form method="post" action="{{ url_for('surveys.qualtrics_push', study_id=study.id) }}" style="display:inline;">
+                <button type="submit" class="btn {% if study.config.qualtrics %}btn-secondary{% else %}btn-primary{% endif %}">
+                    {% if study.config.qualtrics %}Push again (new survey){% else %}Push to Qualtrics{% endif %}
+                </button>
+            </form>
+            {% if study.config.qualtrics %}
+            <form method="post" action="{{ url_for('surveys.qualtrics_pull', study_id=study.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-primary">Pull responses</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if qualtrics_datasets %}
+        <div class="mt-16">
+            <p class="muted" style="font-size:13px;">Pulled response datasets:</p>
+            <ul style="margin-left:20px;">
+                {% for d in qualtrics_datasets %}
+                <li><a href="/datasets/{{ d.id }}">{{ d.name }}</a>
+                    <span class="muted">({{ d.n_rows }} rows, {{ (d.created_at or '')[:16] | replace('T', ' ') }})</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
     {% if study.config.scale_citations %}
     <div class="card">
         <h3>Validated Instruments</h3>

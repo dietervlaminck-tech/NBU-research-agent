@@ -34,6 +34,17 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TEXT NOT NULL DEFAULT ''
 );
 
+-- Per-user external service connections (Zotero, Qualtrics, OSF, ...).
+-- Keyed by the Entra user id; each researcher connects their own accounts.
+CREATE TABLE IF NOT EXISTS user_credentials (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    service TEXT NOT NULL,
+    payload TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT ''
+);
+
 -- Project collaboration roles: viewer < collaborator < owner.
 CREATE TABLE IF NOT EXISTS project_members (
     id TEXT PRIMARY KEY,
@@ -176,6 +187,8 @@ CREATE TABLE IF NOT EXISTS sources (
     doi TEXT NOT NULL DEFAULT '',
     abstract TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
+    fulltext TEXT NOT NULL DEFAULT '',
+    meta TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
 );
 
@@ -241,12 +254,21 @@ def _migrate(conn):
     if "methods_check_json" not in pcols:
         conn.execute(
             "ALTER TABLE projects ADD COLUMN methods_check_json TEXT NOT NULL DEFAULT '{}'")
+    # v0.3: sources gain extracted full text (PDF ingestion) and a metadata
+    # JSON column (OpenAlex/Crossref enrichment, Zotero item keys).
+    scols = {r["name"] for r in conn.execute("PRAGMA table_info(sources)")}
+    if "fulltext" not in scols:
+        conn.execute("ALTER TABLE sources ADD COLUMN fulltext TEXT NOT NULL DEFAULT ''")
+    if "meta" not in scols:
+        conn.execute("ALTER TABLE sources ADD COLUMN meta TEXT NOT NULL DEFAULT '{}'")
 
 
 # --- generic row helpers -----------------------------------------------------
 
 JSON_FIELDS = {
     "projects": ["methods_check_json"],
+    "user_credentials": ["payload"],
+    "sources": ["meta"],
     "studies": ["config"],
     "sessions": ["messages"],
     "survey_responses": ["answers"],

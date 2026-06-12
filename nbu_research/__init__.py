@@ -21,23 +21,29 @@ def create_app():
     auth.init_app(app)
 
     # Each module owns one blueprint registered under a stable url_prefix.
+    from .modules.settings import bp as settings_bp
     from .modules.projects import bp as projects_bp
     from .modules.interviews import bp as interviews_bp
     from .modules.surveys import bp as surveys_bp
     from .modules.datasets import bp as datasets_bp
     from .modules.edgar import bp as edgar_bp
     from .modules.refinitiv import bp as refinitiv_bp
+    from .modules.zotero import bp as zotero_bp
+    from .modules.osf import bp as osf_bp
     from .modules.analysis import bp as analysis_bp
     from .modules.literature import bp as literature_bp
     from .modules.writing import bp as writing_bp
     from .modules.exports import bp as exports_bp
 
+    app.register_blueprint(settings_bp, url_prefix="/settings")
     app.register_blueprint(projects_bp)                       # / and /projects
     app.register_blueprint(interviews_bp, url_prefix="/interviews")
     app.register_blueprint(surveys_bp, url_prefix="/surveys")
     app.register_blueprint(datasets_bp, url_prefix="/datasets")
     app.register_blueprint(edgar_bp, url_prefix="/edgar")
     app.register_blueprint(refinitiv_bp, url_prefix="/refinitiv")
+    app.register_blueprint(zotero_bp, url_prefix="/zotero")
+    app.register_blueprint(osf_bp, url_prefix="/osf")
     app.register_blueprint(analysis_bp, url_prefix="/analysis")
     app.register_blueprint(literature_bp, url_prefix="/literature")
     app.register_blueprint(writing_bp, url_prefix="/writing")

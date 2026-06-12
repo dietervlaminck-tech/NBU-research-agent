@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Connections — NBU Research Agent{% endblock %}
+{% block body %}
+<div class="container">
+    <div class="page-title">
+        <h1>Your connections</h1>
+        <p>Connect your own research accounts. Connections are personal — every
+        researcher links their own Zotero, Qualtrics or OSF account.</p>
+    </div>
+
+    {% if error %}
+    <div class="card" style="border-left:4px solid #c0392b;"><p class="muted">{{ error }}</p></div>
+    {% endif %}
+
+    <div class="grid-2">
+        {% for key, spec in services.items() %}
+        <div class="card">
+            <h3>{{ spec.label }}
+                {% if spec.get('dormant') %}
+                <span class="badge badge-pending">not yet available</span>
+                {% elif status.get(key) %}
+                <span class="badge badge-completed">connected</span>
+                {% else %}
+                <span class="badge badge-pending">not connected</span>
+                {% endif %}
+                {% if saved == key %}<span class="badge badge-active">saved</span>{% endif %}
+            </h3>
+            <p class="muted">{{ spec.help }}</p>
+            {% if not spec.get('dormant') %}
+            <form method="post" action="{{ url_for('settings.save_connection', service=key) }}">
+                {% for field, label in spec.fields %}
+                <div class="form-group">
+                    <label>{{ label }}</label>
+                    <input type="password" name="{{ field }}" autocomplete="off"
+                           placeholder="{% if status.get(key) %}saved — enter to replace{% endif %}">
+                </div>
+                {% endfor %}
+                <button class="btn btn-primary btn-sm" type="submit">
+                    {% if status.get(key) %}Update{% else %}Connect{% endif %}
+                </button>
+                {% if status.get(key) %}
+                <button class="btn btn-danger btn-sm" type="submit" name="action" value="disconnect">Disconnect</button>
+                {% endif %}
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <p class="muted mt-16">Keys are stored server-side, tied to your login, and
+    used only for actions you start. Disconnect at any time.</p>
+</div>
+{% endblock %}

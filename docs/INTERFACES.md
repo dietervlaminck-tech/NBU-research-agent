@@ -151,6 +151,31 @@ datasets module exposes `datasets.store.from_dataframe(project_id, name, df,
 source, source_meta, description)` as the canonical helper — connectors (EDGAR,
 Refinitiv) must use it so column typing stays consistent.
 
+## Per-user service credentials (v0.3)
+
+Researchers connect their own external accounts (Zotero, Qualtrics, OSF) at
+`/settings/connections` after Entra login. Connectors NEVER take platform-wide
+keys for these services.
+
+```python
+from ...credentials import get_credential   # from a module package
+payload = get_credential("zotero")          # dict or None (current user)
+```
+
+- `get_credential(service)` returns the payload dict for the **current
+  request's user** (works in dev mode via the synthetic dev user) or `None`.
+- When `None`, the connector UI must show a "not connected" card linking to
+  `/settings/connections` — never error. Same dormant pattern as Refinitiv.
+- Payload fields per service are defined in `credentials.SERVICES`
+  (zotero: api_key, user_id; qualtrics: api_token, datacenter; osf: token).
+- Background jobs do not have a request context: routes must resolve the
+  payload BEFORE enqueueing and pass needed values in the job payload
+  (job payloads are JSON; treat them as visible in the jobs table — pass
+  tokens, fine for this trust boundary, but never log them).
+
+`sources` gained two columns (v0.3): `fulltext` (extracted PDF text) and
+`meta` (JSON — enrichment data: DOIs, citation counts, OA links, zotero keys).
+
 ## Export registry
 
 `modules/exports/__init__.py` exposes `EXPORTERS`, a dict

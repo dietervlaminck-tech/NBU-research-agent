@@ -66,8 +66,15 @@ communicate through the shared SQLite tables and the export registry.
 
 Modules: `projects` (`/`), `interviews` (`/interviews`), `surveys`
 (`/surveys`), `datasets` (`/datasets`), `edgar` (`/edgar`), `refinitiv`
-(`/refinitiv`), `analysis` (`/analysis`), `literature` (`/literature`),
-`writing` (`/writing`), `exports` (`/exports`).
+(`/refinitiv`), `zotero` (`/zotero`), `osf` (`/osf`), `analysis`
+(`/analysis`), `literature` (`/literature`), `writing` (`/writing`),
+`exports` (`/exports`), `settings` (`/settings` — per-user connections).
+
+Per-user external accounts (v0.3): `credentials.py` —
+`get_credential(service)` for the current user (zotero/qualtrics/osf;
+mendeley dormant). Connectors must show a "not connected" card linking to
+/settings/connections when it returns None; resolve tokens in routes BEFORE
+enqueueing jobs (payloads are JSON; never log tokens).
 
 v0.2 additions: advanced quant kinds register in `quantitative.ANALYSIS_KINDS`
 with form specs in `quantitative.PARAM_SPECS` (the hub renders forms

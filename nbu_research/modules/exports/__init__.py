@@ -11,12 +11,13 @@ import io
 from flask import Blueprint, render_template, send_file, abort
 
 from ... import db
-from . import tabular, documents, qdpx, qsf, spss, stats_packages
+from . import tabular, documents, qdpx, qsf, spss, stats_packages, pdf, prereg
 
 bp = Blueprint("exports", __name__)
 
 TABLES = {"study": "studies", "article": "articles",
-          "review": "literature_reviews", "analysis": "analyses"}
+          "review": "literature_reviews", "analysis": "analyses",
+          "project": "projects"}
 
 # Replication scripts exist for quantitative kinds only (not thematic).
 QUANT_KINDS = ("descriptives", "reliability", "ttest", "anova",
@@ -103,6 +104,14 @@ EXPORTERS = {
     "article_latex": {
         "label": "LaTeX (.tex)", "applies_to": "article",
         "tool": "LaTeX / Overleaf", "fn": documents.article_latex,
+    },
+    "article_pdf": {
+        "label": "PDF (.pdf)", "applies_to": "article",
+        "tool": "Print / sharing", "fn": pdf.article_pdf,
+    },
+    "project_prereg": {
+        "label": "Preregistration package (.zip)", "applies_to": "project",
+        "tool": "OSF / preregistration", "fn": prereg.project_prereg,
     },
     "review_md": {
         "label": "Markdown report (.md)", "applies_to": "review",
