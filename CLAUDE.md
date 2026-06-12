@@ -2,6 +2,10 @@
 
 Guidance for Claude Code when working in this repository.
 
+**New session? Read `docs/PROJECT_HISTORY.md` first** — the chronological
+build log: what exists, what broke before (and the rules that came from it),
+and what is still open.
+
 ## What this is
 
 **NBU Research Agent** — a Flask web platform that takes an academic research
