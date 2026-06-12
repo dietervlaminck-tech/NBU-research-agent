@@ -94,6 +94,22 @@ Deadline June 22; finished June 11.
 
 73 tests passing. Pushed as 5 commits (one per feature) + fixes.
 
+### June 12 — v0.2: methods depth
+
+Four parallel agents + integration pass, same playbook as v0.1. EFA/MANOVA/
+nonparametrics/effect-size report (note: factor_analyzer 0.5.1 needs the
+sklearn>=1.6 compat shim in quantitative.py), deductive coding + Cohen's κ
+(session × code presence) + co-occurrence, multi-page/skip-logic/randomized
+surveys + validated scale library (UWES-9, TAM, BFI-10, PSS-4), transcript +
+Qualtrics CSV imports, browser voice input + multilingual interviewing, and the
+mixed-methods joint display (`analysis/mixed.py`). New analysis kinds dispatch
+through `quantitative.ANALYSIS_KINDS` (merged with `qualitative.SYNC_KINDS`);
+forms render generically from `quantitative.PARAM_SPECS`. 143 tests. Live-
+verified: Kruskal-Wallis + effect-size report on the EDGAR dataset,
+co-occurrence on the demo interviews. NOTE: the regenerated demo study id is
+6eff78d31eb5 (ids changed when demo data was rebuilt after the data-loss
+incident).
+
 ## Incidents & lessons (read these before touching anything)
 
 1. **`rm -rf data` destroyed the live database (June 11).** A compile check

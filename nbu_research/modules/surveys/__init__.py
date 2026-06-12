@@ -12,6 +12,7 @@ from .builder import (
     summarize,
     format_answer,
 )
+from .scales import SCALE_LIBRARY
 
 bp = Blueprint("surveys", __name__)
 
@@ -26,6 +27,9 @@ def _get_survey(study_id):
     config.setdefault("questions", [])
     config.setdefault("welcome_text", "")
     config.setdefault("thankyou_text", "")
+    # v0.2 optional config (absent in legacy surveys → behave exactly as before)
+    config.setdefault("randomize_questions", False)
+    config.setdefault("scale_citations", {})
     study["config"] = config
     return study
 
@@ -70,7 +74,8 @@ def builder(study_id):
     study = _get_survey(study_id)
     if not study:
         return "Survey not found", 404
-    return render_template("surveys/builder.html", study=study, question_types=QUESTION_TYPES)
+    return render_template("surveys/builder.html", study=study,
+                           question_types=QUESTION_TYPES, scale_library=SCALE_LIBRARY)
 
 
 @bp.route("/api/<study_id>/questions", methods=["POST"])
@@ -79,11 +84,20 @@ def api_save_questions(study_id):
     if not study:
         return jsonify({"error": "Survey not found"}), 404
     data = request.get_json(silent=True) or {}
+    questions = normalize_questions(data.get("questions", []))
     config = {
-        "questions": normalize_questions(data.get("questions", [])),
+        "questions": questions,
         "welcome_text": str(data.get("welcome_text", "")).strip(),
         "thankyou_text": str(data.get("thankyou_text", "")).strip(),
     }
+    if data.get("randomize_questions"):
+        config["randomize_questions"] = True
+    # Instrument citations are derived server-side from the construct tags so
+    # they always match the questions actually saved.
+    citations = {q["construct"]: SCALE_LIBRARY[q["construct"]]["citation"]
+                 for q in questions if q.get("construct") in SCALE_LIBRARY}
+    if citations:
+        config["scale_citations"] = citations
     db.update("studies", study_id, {"config": config})
     return jsonify({"ok": True, "config": config})
 

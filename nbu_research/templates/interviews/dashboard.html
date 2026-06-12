@@ -43,6 +43,7 @@
         </div>
     </div>
 
+    {% if not (study.config and study.config.imported) %}
     <div class="card">
         <div class="flex-between mb-8">
             <h3>Interview Link</h3>
@@ -52,6 +53,12 @@
             <button class="btn btn-primary btn-sm" onclick="copyLink()">Copy</button>
         </div>
     </div>
+    {% else %}
+    <div class="card">
+        <h3>Imported study</h3>
+        <p class="muted">This study was created from uploaded transcripts — there is no live interview link.</p>
+    </div>
+    {% endif %}
 
     <h3 style="margin: 24px 0 16px;">Interview Sessions</h3>
 

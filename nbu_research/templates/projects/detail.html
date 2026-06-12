@@ -87,6 +87,30 @@
     </table>
     {% else %}<div class="empty-state">No studies yet.</div>{% endif %}
 
+    {% if qual_done and quant_targets %}
+    <div class="card" style="border-left: 4px solid #FBBA20;">
+        <h3>Mixed-methods integration</h3>
+        <p class="muted">Link the themes of a qualitative analysis to the constructs of a survey or dataset — joint display + meta-inference report.</p>
+        <form method="post" action="{{ url_for('analysis.run_mixed', project_id=project.id) }}" class="mt-16">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Qualitative analysis (themes)</label>
+                    <select name="thematic_analysis_id" required>
+                        {% for a in qual_done %}<option value="{{ a.id }}">{{ a.title }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantitative source (constructs)</label>
+                    <select name="quant_target" required>
+                        {% for kind, tid, label in quant_targets %}<option value="{{ kind }}:{{ tid }}">{{ label }} ({{ kind }})</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit">Run integration</button>
+        </form>
+    </div>
+    {% endif %}
+
     <div class="section-title">Datasets</div>
     {% if datasets %}
     <table class="table">

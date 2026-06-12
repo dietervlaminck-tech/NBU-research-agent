@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timezone
 
 from flask import (
@@ -10,6 +11,9 @@ from ... import db
 from ...auth import check_project_role
 from ...config import DEFAULT_INTERVIEW_MODEL
 from .bot import DEFAULT_GENERAL_INSTRUCTIONS, FIRST_USER_MESSAGE, stream_interview_reply
+from .transcripts import extract_text, parse_transcript
+
+TRANSCRIPT_EXTENSIONS = {".txt", ".docx"}
 
 bp = Blueprint("interviews", __name__)
 
@@ -49,6 +53,9 @@ def create_study():
     general_instructions = request.form.get("general_instructions", "").strip()
     model = request.form.get("model", DEFAULT_INTERVIEW_MODEL)
     project_id = request.form.get("project_id", "").strip() or None
+    language = request.form.get("language", "en").strip() or "en"
+    if language == "other":
+        language = request.form.get("language_other", "").strip() or "en"
 
     if not title or not research_question or not interview_outline:
         return jsonify({"error": "Title, research question, and interview outline are required"}), 400
@@ -61,10 +68,59 @@ def create_study():
         "config": {
             "interview_outline": interview_outline,
             "general_instructions": general_instructions,
+            "language": language,
         },
         "model": model,
     })
     return redirect(url_for("interviews.study_created", study_id=study_id))
+
+
+@bp.route("/import", methods=["POST"])
+def import_transcripts():
+    """Create a study from uploaded transcript files (.txt/.docx), one
+    completed session per file. Imported studies have no live interview link
+    and are marked with config.imported."""
+    title = request.form.get("title", "").strip()
+    research_question = request.form.get("research_question", "").strip()
+    files = [f for f in request.files.getlist("transcripts") if f and f.filename]
+    project_id = request.form.get("project_id", "").strip() or None
+
+    if not title or not research_question:
+        return jsonify({"error": "Title and research question are required"}), 400
+    if not files:
+        return jsonify({"error": "Please choose at least one transcript file (.txt or .docx)"}), 400
+    for f in files:
+        ext = os.path.splitext(f.filename)[1].lower()
+        if ext not in TRANSCRIPT_EXTENSIONS:
+            return jsonify({"error": f"Unsupported transcript file type '{ext}'. Allowed: .txt, .docx"}), 400
+
+    study_id = db.insert("studies", {
+        "project_id": project_id,
+        "study_type": "interview",
+        "title": title,
+        "research_question": research_question,
+        "config": {
+            "imported": True,
+            "interview_outline": "(imported transcripts)",
+        },
+    })
+
+    for f in files:
+        text = extract_text(f.filename, f.read())
+        messages = parse_transcript(text)
+        now = db.now()
+        db.insert("sessions", {
+            "id": db.new_id(16),
+            "study_id": study_id,
+            "respondent_name": os.path.splitext(os.path.basename(f.filename))[0],
+            "messages": messages,
+            "status": "completed",
+            "started_at": now,
+            "completed_at": now,
+            "duration_seconds": 0,
+        })
+
+    return redirect(url_for("interviews.dashboard", study_id=study_id))
 
 
 @bp.route("/created/<study_id>")

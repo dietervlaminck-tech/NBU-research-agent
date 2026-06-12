@@ -19,6 +19,13 @@
         <div class="chat-input-area">
             <div class="chat-input-row">
                 <input type="text" id="userInput" placeholder="Type your response..." disabled autocomplete="off">
+                {% set lang = (study.config.language if study.config else 'en') or 'en' %}
+                {% set locales = {'en': 'en-US', 'nl': 'nl-NL', 'de': 'de-DE', 'fr': 'fr-FR', 'es': 'es-ES'} %}
+                <button class="btn btn-secondary" id="micBtn" type="button"
+                        onclick="toggleMic()" aria-pressed="false" aria-label="Dictate your response"
+                        title="Dictate your response"
+                        data-speech-lang="{{ locales.get(lang, 'en-US') }}"
+                        style="display:none;flex-shrink:0;padding-left:14px;padding-right:14px;">&#127908;</button>
                 <button class="btn btn-primary" id="sendBtn" onclick="sendMessage()" disabled>Send</button>
             </div>
         </div>
@@ -104,6 +111,7 @@ async function startInterview() {
 
 async function sendMessage() {
     if (isStreaming) return;
+    if (micActive && recognition) { recognition.stop(); setMicState(false); }
     const input = document.getElementById('userInput');
     const text = input.value.trim();
     if (!text) return;
@@ -156,9 +164,68 @@ async function sendMessage() {
     }
 }
 
+// --- Voice input (Web Speech API) ---------------------------------------
+// Feature-detected: the mic button stays hidden when unsupported (typing is
+// unaffected). While listening, interim results stream into the input field
+// and final results are appended to what was already typed.
+const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let micActive = false;
+let micBaseText = '';
+let micFinalText = '';
+
+if (SpeechRecognitionImpl) {
+    document.getElementById('micBtn').style.display = '';
+}
+
+function setMicState(active) {
+    micActive = active;
+    const btn = document.getElementById('micBtn');
+    btn.innerHTML = active ? '&#9210;' : '&#127908;';
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.style.background = active ? '#c0392b' : '';
+    btn.style.color = active ? '#fff' : '';
+}
+
+function toggleMic() {
+    if (!SpeechRecognitionImpl) return;
+    if (micActive) {
+        if (recognition) recognition.stop();
+        setMicState(false);
+        return;
+    }
+    const input = document.getElementById('userInput');
+    micBaseText = input.value ? input.value.replace(/\s+$/, '') + ' ' : '';
+    micFinalText = '';
+
+    recognition = new SpeechRecognitionImpl();
+    recognition.lang = document.getElementById('micBtn').dataset.speechLang || 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = function(e) {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            const transcript = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+                micFinalText += transcript + ' ';
+            } else {
+                interim += transcript;
+            }
+        }
+        input.value = micBaseText + micFinalText + interim;
+    };
+    recognition.onend = function() { setMicState(false); };
+    recognition.onerror = function() { setMicState(false); };
+
+    recognition.start();
+    setMicState(true);
+}
+
 document.getElementById('userInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        if (micActive && recognition) { recognition.stop(); setMicState(false); }
         sendMessage();
     }
 });

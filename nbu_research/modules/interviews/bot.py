@@ -30,6 +30,29 @@ You are an expert qualitative research interviewer. Follow these principles:
 CLOSING_MESSAGE_COMPLETE = "Thank you very much for participating in this interview. Your responses have been recorded and will be very valuable for our research. You may now close this window."
 CLOSING_MESSAGE_SAFETY = "Thank you for your time. The interview has ended. You may now close this window."
 
+# Human-readable names for the language codes offered in the create form;
+# any other config.language value is passed through verbatim.
+LANGUAGE_NAMES = {
+    "en": "English",
+    "nl": "Dutch",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+}
+
+
+def _language_section(config):
+    """Firm instruction to conduct the interview in config.language (if set
+    and not English). Termination codes are language-independent."""
+    language = (config.get("language") or "en").strip()
+    if not language or language.lower() == "en":
+        return ""
+    name = LANGUAGE_NAMES.get(language.lower(), language)
+    return f"""
+
+## Interview Language
+You MUST conduct the ENTIRE interview in {name} ("{language}"). Every question, acknowledgement, follow-up probe, summary, and closing remark must be in {name} — even if the interview outline above is written in another language, translate it and ask in {name}. Only switch languages if the respondent explicitly asks you to. The termination codes below stay exactly as specified and are never translated."""
+
 
 def build_system_prompt(study):
     config = study.get("config") or {}
@@ -47,7 +70,7 @@ Follow this interview script, adapting your questions based on the respondent's 
 {outline}
 
 ## General Instructions
-{instructions}
+{instructions}{_language_section(config)}
 
 ## Termination Codes
 - When you have asked all questions and the interview is complete, end your FINAL message with the code: {COMPLETION_CODE}

@@ -67,12 +67,24 @@ def project_detail(project_id):
     articles = db.query("articles", "project_id = ?", (project_id,))
     analyses = db.query("analyses", "project_id = ?", (project_id,))
     members, invites = _members_context(project_id)
+    # Mixed-methods prerequisites: a completed thematic/deductive analysis on a
+    # study in this project, plus a survey or dataset to integrate with.
+    study_ids = {s["id"] for s in studies}
+    qual_done = [a for a in db.query("analyses", "status = ?", ("done",))
+                 if a["kind"] in ("thematic", "deductive")
+                 and a.get("study_id") in study_ids]
+    quant_targets = (
+        [("study", s["id"], s["title"]) for s in studies
+         if s["study_type"] == "survey"] +
+        [("dataset", d["id"], d["name"]) for d in datasets]
+    )
     return render_template(
         "projects/detail.html",
         project=project, studies=studies, datasets=datasets, reviews=reviews,
         articles=articles, analyses=analyses,
         members=members, invites=invites,
         my_role=project_role(project_id),
+        qual_done=qual_done, quant_targets=quant_targets,
     )
 
 

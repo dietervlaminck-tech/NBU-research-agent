@@ -21,6 +21,7 @@
 
     {% set run_url = url_for('analysis.run_dataset', dataset_id=dataset.id) %}
     {% include "analysis/_quant_forms.html" %}
+    {% include "analysis/_advanced_quant_forms.html" %}
 
     <div class="section-title">Past analyses</div>
     {% if analyses %}

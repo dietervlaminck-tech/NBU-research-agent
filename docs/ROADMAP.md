@@ -44,13 +44,23 @@
 - [x] Article pipeline: outline → draft → peer-review memo → revision
 - [x] Exports: CSV, XLSX, JSON, SAV, QSF, QDPX, DOCX, MD, HTML, LaTeX, BibTeX
 
-## v0.2 — methods depth
-- [ ] Mixed-methods designs: link interview themes to survey constructs per project
-- [ ] Quant: factor analysis (EFA), MANOVA, nonparametric tests (Mann-Whitney, Kruskal-Wallis, Wilcoxon), effect-size report builder
-- [ ] Qual: deductive coding with imported codebooks, second-coder simulation + intercoder agreement (Cohen's κ), code co-occurrence matrix
-- [ ] Survey logic: branching/skip logic, randomization, multi-page surveys, validated scale library (e.g. UWES, TAM, Big Five) with citations
-- [ ] Interview: voice mode (speech-to-text respondents), multilingual interviewing
-- [ ] Upload external data: import Qualtrics CSV, SPSS .sav, interview transcripts (docx/txt) for analysis without collecting via the platform
+## v0.2 — methods depth (June 12, 2026)
+- [x] Mixed-methods designs: joint display linking interview themes to survey
+  constructs + AI meta-inference report, launched from the project hub
+- [x] Quant: EFA (KMO, Bartlett, varimax loadings), MANOVA, Mann-Whitney,
+  Kruskal-Wallis, Wilcoxon, and an effect-size report builder with verbal
+  magnitude labels
+- [x] Qual: deductive coding with imported codebooks (JSON/CSV), second-coder
+  simulation + Cohen's κ (session × code presence unitization), code
+  co-occurrence matrix
+- [x] Survey logic: multi-page, show_if skip logic, option/question
+  randomization, validated scale library (UWES-9, TAM, BFI-10, PSS-4) with
+  citations surfaced on the dashboard
+- [x] Interview: respondent voice input (browser Web Speech API — Chrome/Edge/
+  Safari; no server audio pipeline) + multilingual interviewing (config.language)
+- [x] Upload external data: interview transcripts (.docx/.txt → sessions),
+  Qualtrics 3-header CSV auto-detection; SPSS .sav/Stata .dta upload shipped in
+  the Phase 2 datasets module
 
 ## v0.3 — integrations depth
 - [ ] Qualtrics REST API: push surveys, pull responses live

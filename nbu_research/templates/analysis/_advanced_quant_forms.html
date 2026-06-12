@@ -1,0 +1,44 @@
+{# v0.2 advanced quantitative methods, rendered generically from
+   quantitative.PARAM_SPECS. Requires: run_url, param_specs, numeric_cols,
+   categorical_cols. #}
+{% set kind_titles = {
+    "efa": ("Factor analysis (EFA)", "Exploratory factor analysis with KMO, Bartlett and varimax loadings."),
+    "manova": ("MANOVA", "Multivariate ANOVA across 2+ dependent variables."),
+    "mannwhitney": ("Mann-Whitney U", "Nonparametric two-group comparison (ordinal-safe)."),
+    "kruskal": ("Kruskal-Wallis", "Nonparametric comparison across 3+ groups."),
+    "wilcoxon": ("Wilcoxon signed-rank", "Nonparametric paired comparison of two items."),
+    "effect_sizes": ("Effect-size report", "Aggregates effect sizes from all completed analyses with verbal magnitudes."),
+} %}
+<div class="section-title">Advanced methods</div>
+<div class="grid-2">
+    {% for kind, spec in param_specs.items() %}
+    <div class="card">
+        <h3>{{ kind_titles.get(kind, (kind, ""))[0] }}</h3>
+        <p class="muted">{{ kind_titles.get(kind, ("", ""))[1] }}</p>
+        <form method="post" action="{{ run_url }}">
+            <input type="hidden" name="kind" value="{{ kind }}">
+            {% for f in spec.fields %}
+            <div class="form-group">
+                <label>{{ f.label }}</label>
+                {% if f.kind == "numeric_multiselect" %}
+                <select name="{{ f.name }}" multiple size="6" {% if f.required %}required{% endif %}>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+                {% elif f.kind == "numeric_select" %}
+                <select name="{{ f.name }}" {% if f.required %}required{% endif %}>
+                    {% for c in numeric_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+                {% elif f.kind == "categorical_select" %}
+                <select name="{{ f.name }}" {% if f.required %}required{% endif %}>
+                    {% for c in categorical_cols %}<option value="{{ c.id }}">{{ c.id }} — {{ c.label }}</option>{% endfor %}
+                </select>
+                {% else %}
+                <input type="text" name="{{ f.name }}" {% if f.required %}required{% endif %}>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button class="btn btn-primary" type="submit">Run</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>

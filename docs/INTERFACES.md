@@ -54,12 +54,72 @@ route at `/` (so `/interviews/`, `/surveys/`, … resolve).
   "required": true,
   "options": ["…"],            // choice types
   "scale": {"min":1, "max":5, "min_label":"…", "max_label":"…"},  // likert/numeric
-  "rows": ["…"]                 // matrix sub-items, each rated on `scale`
+  "rows": ["…"],                // matrix sub-items, each rated on `scale`
+
+  "page": 1,                    // v0.2 optional: 1-based page number (default 1)
+  "show_if": {                  // v0.2 optional: skip logic; question is shown
+    "question": "q0",           //   only when the referenced EARLIER answer
+    "op": "equals|not_equals|in|gte|lte",
+    "value": "…"                //   matches (value may be a list for "in")
+  },
+  "randomize_options": false,   // v0.2 optional: shuffle options per respondent
+  "construct": "uwes9"          // v0.2 optional: scale-library construct tag
 }
 ```
 
+Survey config additions (v0.2): `"randomize_questions": bool` (shuffle question
+order within each page per respondent; questions with `show_if` keep relative
+order after their referenced question).
+
+Skip-logic rules: `show_if` may only reference a question on an EARLIER page or
+earlier in the same page; hidden questions are not required and are stored as
+missing. `validate_answers` MUST evaluate `show_if` server-side (never trust
+the client). The analysis dataframe treats logic-hidden answers as NaN/None —
+no schema change.
+
+Validated scale library: `modules/surveys/scales.py` exposes
+`SCALE_LIBRARY = {key: {"name", "citation", "scale", "items": [...]}}` (UWES-9,
+TAM, BFI-10, …). The builder inserts a scale as likert questions tagged with
+`construct`; the citation is stored in the survey config under
+`"scale_citations"` so methods sections can cite instruments.
+
 Answers: likert/numeric → number; multiple_choice/dropdown → option string;
 checkbox → list of option strings; open → string; matrix → `{row_text: number}`.
+
+### Interview study config additions (v0.2)
+
+`{"language": "en|nl|de|fr|es|…"}` — the interviewer conducts the conversation
+in this language (bot system prompt). The respondent chat offers browser
+speech-to-text (Web Speech API) using the matching locale; voice is optional
+and falls back silently to typing where unsupported.
+`{"imported": true}` marks studies created by transcript upload (no live link).
+
+### Analysis kinds (v0.2 additions)
+
+Quantitative (in `analysis/quantitative.py`, same `fn(target, params)` shape):
+`efa` (exploratory factor analysis via factor_analyzer), `manova`
+(statsmodels), `mannwhitney`, `kruskal`, `wilcoxon` (scipy), and
+`effect_sizes` (report builder aggregating effect sizes + CIs from the
+study/dataset's completed analyses).
+
+Qualitative (in `analysis/qualitative.py`): `deductive` (coding with a fixed
+imported codebook — no inductive step), `intercoder` (independent second-coder
+simulation; Cohen's κ computed on the session × code presence matrix — note
+this unitization in the report), `cooccurrence` (code co-occurrence counts
+within sessions → matrix).
+
+Mixed (in `analysis/mixed.py`): `mixed_methods` — joint display linking a
+thematic analysis' themes to a survey/dataset's constructs, with an AI
+meta-inference report. Stored with `project_id`.
+
+### Imports (v0.2)
+
+- Interview transcripts: upload .docx/.txt in the interviews module → one
+  session per file; lines prefixed `Interviewer:` / `Respondent:` (or
+  `I:`/`R:`) become turns, otherwise the whole text is one respondent turn.
+- Qualtrics CSV: the datasets module detects Qualtrics' 3-header-row legacy
+  export (ids / question text / ImportId JSON) and uses row 1 as ids, row 2 as
+  labels, skipping row 3.
 
 ## Datasets (Phase 2 — analyzable tabular data)
 

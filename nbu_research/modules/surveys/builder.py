@@ -7,6 +7,7 @@ from ...config import DEFAULT_PIPELINE_MODEL
 QUESTION_TYPES = ["likert", "multiple_choice", "checkbox", "open", "numeric", "matrix", "dropdown"]
 CHOICE_TYPES = {"multiple_choice", "checkbox", "dropdown"}
 SCALE_TYPES = {"likert", "numeric", "matrix"}
+SHOW_IF_OPS = {"equals", "not_equals", "in", "gte", "lte"}
 
 DEFAULT_SCALE = {"min": 1, "max": 5, "min_label": "Strongly disagree", "max_label": "Strongly agree"}
 
@@ -99,6 +100,36 @@ def _int(value, fallback):
         return fallback
 
 
+def _normalize_show_if(raw_cond, earlier_ids):
+    """Clean a v0.2 show_if condition; returns None when invalid/empty.
+
+    Invalid conditions (unknown op, missing/unknown/later question reference)
+    are stripped rather than rejected, consistent with the coerce-don't-error
+    style of normalize_questions.
+    """
+    if not isinstance(raw_cond, dict):
+        return None
+    ref = str(raw_cond.get("question") or "").strip()
+    op = str(raw_cond.get("op") or "").strip()
+    if not ref or ref not in earlier_ids or op not in SHOW_IF_OPS:
+        return None
+    value = raw_cond.get("value")
+    if op == "in":
+        # value is a list of accepted answers; a comma-separated string is split.
+        if isinstance(value, list):
+            value = [str(v).strip() for v in value if str(v).strip()]
+        else:
+            value = [v.strip() for v in str(value or "").split(",") if v.strip()]
+        if not value:
+            return None
+    else:
+        value = value if isinstance(value, (int, float)) and not isinstance(value, bool) \
+            else str(value if value is not None else "").strip()
+        if value == "":
+            return None
+    return {"question": ref, "op": op, "value": value}
+
+
 def normalize_questions(raw):
     """Coerce a raw questions list into clean Question objects per INTERFACES.md."""
     questions = []
@@ -113,13 +144,26 @@ def normalize_questions(raw):
         qid = str(q.get("id") or "").strip() or f"q{i + 1}"
         while qid in seen_ids:
             qid += "x"
-        seen_ids.add(qid)
         clean = {
             "id": qid,
             "type": qtype,
             "text": text,
             "required": bool(q.get("required", True)),
         }
+        # v0.2 optional fields — omitted entirely at their defaults so legacy
+        # survey configs round-trip unchanged.
+        page = _int(q.get("page"), 1)
+        if page > 1:
+            clean["page"] = page
+        show_if = _normalize_show_if(q.get("show_if"), seen_ids)
+        if show_if:
+            clean["show_if"] = show_if
+        if qtype in CHOICE_TYPES and bool(q.get("randomize_options")):
+            clean["randomize_options"] = True
+        construct = str(q.get("construct") or "").strip()
+        if construct:
+            clean["construct"] = construct
+        seen_ids.add(qid)
         if qtype in CHOICE_TYPES:
             clean["options"] = [str(o).strip() for o in (q.get("options") or []) if str(o).strip()]
         if qtype in SCALE_TYPES:
@@ -147,12 +191,58 @@ def _number(value):
     return int(n) if n.is_integer() else n
 
 
+def _values_equal(a, b):
+    """Loose equality for show_if: numeric when both sides parse, else string.
+    A list answer (checkbox) matches when any selected option matches."""
+    if isinstance(a, list):
+        return any(_values_equal(x, b) for x in a)
+    try:
+        return float(a) == float(b)
+    except (TypeError, ValueError):
+        return str(a).strip() == str(b).strip()
+
+
+def condition_met(cond, answers):
+    """Evaluate one show_if condition against an answers dict.
+
+    An unanswered (or itself hidden) referenced question never matches, so
+    dependents of hidden questions stay hidden. Mirrors the client-side
+    evaluator in run.html — keep the two in sync.
+    """
+    ref = answers.get(cond.get("question"))
+    if ref in (None, "", []):
+        return False
+    op, value = cond.get("op"), cond.get("value")
+    if op == "equals":
+        return _values_equal(ref, value)
+    if op == "not_equals":
+        return not _values_equal(ref, value)
+    if op == "in":
+        accepted = value if isinstance(value, list) else [value]
+        return any(_values_equal(ref, v) for v in accepted)
+    if op in ("gte", "lte"):
+        try:
+            r, v = float(ref), float(value)
+        except (TypeError, ValueError):
+            return False
+        return r >= v if op == "gte" else r <= v
+    return False
+
+
 def validate_answers(questions, answers):
-    """Validate respondent answers; returns (clean_answers, errors)."""
+    """Validate respondent answers; returns (clean_answers, errors).
+
+    v0.2: show_if is re-evaluated server-side against the already-validated
+    earlier answers (never trust the client) — logic-hidden questions are not
+    required and any smuggled answers for them are dropped. show_if may only
+    reference earlier questions, so a single forward pass suffices.
+    """
     answers = answers if isinstance(answers, dict) else {}
     clean, errors = {}, []
     for q in questions:
         qid, qtype = q["id"], q["type"]
+        if q.get("show_if") and not condition_met(q["show_if"], clean):
+            continue  # hidden: never required; smuggled answers dropped
         value = answers.get(qid)
         if value in (None, "", []):
             if q.get("required"):

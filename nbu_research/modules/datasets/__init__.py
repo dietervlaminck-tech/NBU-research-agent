@@ -10,7 +10,7 @@ from flask import (
 
 from ... import db
 from ...auth import check_project_role
-from . import store
+from . import qualtrics, store
 
 bp = Blueprint("datasets", __name__, template_folder="../templates")
 
@@ -43,23 +43,28 @@ def index():
 
 
 def _read_dataframe(filename, raw):
-    """Parse uploaded bytes into a DataFrame based on file extension. Raises
-    ValueError with a human-readable message on failure."""
+    """Parse uploaded bytes into (DataFrame, labels-or-None) based on file
+    extension. `labels` maps column name -> human-readable label and is only
+    set for auto-detected Qualtrics legacy CSV exports. Raises ValueError with
+    a human-readable message on failure."""
     ext = os.path.splitext(filename)[1].lower()
     if ext == ".csv":
         try:
-            return pd.read_csv(io.BytesIO(raw), encoding="utf-8")
+            text = raw.decode("utf-8")
         except UnicodeDecodeError:
-            return pd.read_csv(io.BytesIO(raw), encoding="latin-1")
+            text = raw.decode("latin-1")
+        if qualtrics.detect(text):
+            return qualtrics.parse(text)
+        return pd.read_csv(io.StringIO(text)), None
     if ext in (".xlsx", ".xls"):
         # First sheet only.
-        return pd.read_excel(io.BytesIO(raw), sheet_name=0)
+        return pd.read_excel(io.BytesIO(raw), sheet_name=0), None
     if ext == ".sav":
         df, _meta = pyreadstat.read_sav(_to_tempfile(raw, ext))
-        return df
+        return df, None
     if ext == ".dta":
         df, _meta = pyreadstat.read_dta(_to_tempfile(raw, ext))
-        return df
+        return df, None
     raise ValueError(f"Unsupported file type: {ext}")
 
 
@@ -96,7 +101,7 @@ def upload():
         return fail("The uploaded file is empty.")
 
     try:
-        df = _read_dataframe(file.filename, raw)
+        df, labels = _read_dataframe(file.filename, raw)
     except Exception as e:  # noqa: BLE001 — surface any parse error to the user
         return fail(f"Could not read '{file.filename}': {e}")
 
@@ -107,11 +112,16 @@ def upload():
     project_id = request.form.get("project_id", "").strip() or None
     description = request.form.get("description", "").strip()
 
+    source_meta = {"filename": file.filename, "ext": ext}
+    if labels is not None:
+        source_meta["qualtrics"] = True
+
     dataset_id = store.from_dataframe(
         project_id, name, df,
         source="upload",
-        source_meta={"filename": file.filename, "ext": ext},
+        source_meta=source_meta,
         description=description,
+        labels=labels,
     )
     return redirect(url_for("datasets.detail", dataset_id=dataset_id))
 

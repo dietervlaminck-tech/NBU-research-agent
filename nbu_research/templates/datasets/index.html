@@ -21,7 +21,7 @@
                 <label for="file">File</label>
                 <input type="file" id="file" name="file"
                        accept=".csv,.xlsx,.xls,.sav,.dta" required>
-                <div class="hint">CSV, XLSX/XLS, SAV (SPSS) or DTA (Stata). The first sheet is used for Excel files.</div>
+                <div class="hint">CSV, XLSX/XLS, SAV (SPSS) or DTA (Stata). The first sheet is used for Excel files. Qualtrics CSV exports (legacy 3-header-row format) are auto-detected: question texts become column labels and Qualtrics metadata columns are dropped.</div>
             </div>
             <div class="form-group">
                 <label for="name">Name (optional)</label>

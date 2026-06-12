@@ -26,7 +26,7 @@ pip install -r requirements.txt
 cp .env.example .env          # set ANTHROPIC_API_KEY and SECRET_KEY
 python app.py                 # http://localhost:5050
 
-python -m pytest tests/ -q    # 73 tests; no API key needed
+python -m pytest tests/ -q    # 143 tests; no API key needed
 ./deploy.sh                   # Azure deploy (needs .deploy.env + az login)
 
 # Durable task queue (production; dev falls back to threads without it):
@@ -68,6 +68,14 @@ Modules: `projects` (`/`), `interviews` (`/interviews`), `surveys`
 (`/surveys`), `datasets` (`/datasets`), `edgar` (`/edgar`), `refinitiv`
 (`/refinitiv`), `analysis` (`/analysis`), `literature` (`/literature`),
 `writing` (`/writing`), `exports` (`/exports`).
+
+v0.2 additions: advanced quant kinds register in `quantitative.ANALYSIS_KINDS`
+with form specs in `quantitative.PARAM_SPECS` (the hub renders forms
+generically); qual sync kinds in `qualitative.SYNC_KINDS`; mixed-methods in
+`analysis/mixed.py`; survey skip-logic is evaluated server-side in
+`surveys/builder.py.validate_answers` (never trust the client); the scale
+library lives in `surveys/scales.py`; Qualtrics CSV detection in
+`datasets/qualtrics.py`; transcript import in `interviews/transcripts.py`.
 
 Cross-cutting (v0.1.1): `auth.py` (Entra ID SSO + per-project roles —
 `current_user`, `check_project_role`, public-endpoint allowlist),

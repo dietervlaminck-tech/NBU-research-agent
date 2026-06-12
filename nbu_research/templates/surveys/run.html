@@ -19,9 +19,10 @@
             {% for q in questions %}
             {% set scale = q.scale or {'min': 1, 'max': 5, 'min_label': '', 'max_label': ''} %}
             <div class="card question" data-qid="{{ q.id }}" data-qtype="{{ q.type }}"
+                 data-page="{{ q.page or 1 }}"
                  data-required="{{ 1 if q.required else 0 }}" data-rows="{{ q.rows | length if q.type == 'matrix' else 0 }}">
                 <p style="font-weight:600; margin-bottom:12px;">
-                    {{ loop.index }}. {{ q.text }}{% if q.required %} <span style="color:var(--danger);">*</span>{% endif %}
+                    <span class="q-num">{{ loop.index }}</span>. {{ q.text }}{% if q.required %} <span style="color:var(--danger);">*</span>{% endif %}
                 </p>
 
                 {% if q.type == 'likert' %}
@@ -38,14 +39,14 @@
 
                 {% elif q.type == 'multiple_choice' %}
                 {% for opt in q.options %}
-                <label style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
+                <label class="q-option" style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
                     <input type="radio" name="{{ q.id }}" value="{{ opt }}"> <span>{{ opt }}</span>
                 </label>
                 {% endfor %}
 
                 {% elif q.type == 'checkbox' %}
                 {% for opt in q.options %}
-                <label style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
+                <label class="q-option" style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer;">
                     <input type="checkbox" name="{{ q.id }}" value="{{ opt }}"> <span>{{ opt }}</span>
                 </label>
                 {% endfor %}
@@ -104,9 +105,14 @@
             </div>
             {% endfor %}
 
-            <div class="card" style="text-align:center;">
-                <div id="formError" style="display:none; color:var(--danger); margin-bottom:12px;"></div>
-                <button type="submit" class="btn btn-primary" id="submitBtn">Submit Survey</button>
+            <div class="card" id="navCard">
+                <div id="formError" style="display:none; color:var(--danger); margin-bottom:12px; text-align:center;"></div>
+                <div id="navRow" style="display:flex; justify-content:center; align-items:center; gap:12px;">
+                    <button type="button" class="btn btn-secondary" id="prevBtn" style="display:none;">&larr; Previous</button>
+                    <span id="pageProgress" class="muted" style="display:none; flex:1; text-align:center;"></span>
+                    <button type="button" class="btn btn-primary" id="nextBtn" style="display:none;">Next &rarr;</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Submit Survey</button>
+                </div>
             </div>
         </form>
     </div>
@@ -121,7 +127,213 @@
 {% block scripts %}
 <script>
 const STARTED_AT = new Date().toISOString();
+const QUESTIONS = {{ questions | tojson }};
+const RANDOMIZE_QUESTIONS = {{ 'true' if study.config.randomize_questions else 'false' }};
 
+const form = document.getElementById('surveyForm');
+const navCard = document.getElementById('navCard');
+const cardByQid = {};
+QUESTIONS.forEach(q => { cardByQid[q.id] = form.querySelector('.question[data-qid="' + q.id + '"]'); });
+
+// ---- per-respondent randomization (seeded per browser session so a reload
+// ---- keeps the same order) -------------------------------------------------
+function mulberry32(seed) {
+    return function () {
+        seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+let seed;
+try {
+    const key = 'nbu_survey_seed_{{ study.id }}';
+    seed = parseInt(sessionStorage.getItem(key), 10);
+    if (!Number.isFinite(seed)) {
+        seed = Math.floor(Math.random() * 0x7fffffff);
+        sessionStorage.setItem(key, String(seed));
+    }
+} catch (e) { seed = Math.floor(Math.random() * 0x7fffffff); }
+const rng = mulberry32(seed);
+
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// Questions with show_if, or referenced by one, are anchored: they keep their
+// position so a dependent question always stays after the question it depends
+// on (documented simplification; see docs/INTERFACES.md).
+const anchored = new Set();
+QUESTIONS.forEach(q => {
+    if (q.show_if) { anchored.add(q.id); anchored.add(q.show_if.question); }
+});
+
+function orderForPage(pageQuestions) {
+    if (!RANDOMIZE_QUESTIONS) return pageQuestions;
+    const arr = pageQuestions.slice();
+    const slots = [];
+    arr.forEach((q, i) => { if (!anchored.has(q.id)) slots.push(i); });
+    const movable = shuffle(slots.map(i => arr[i]));
+    slots.forEach((i, k) => { arr[i] = movable[k]; });
+    return arr;
+}
+
+function shuffleOptions(card, q) {
+    if (q.type === 'dropdown') {
+        const select = card.querySelector('select');
+        const opts = [...select.querySelectorAll('option')].slice(1); // keep placeholder
+        shuffle(opts).forEach(o => select.appendChild(o));
+    } else {
+        const labels = [...card.querySelectorAll('label.q-option')];
+        if (!labels.length) return;
+        const anchor = card.querySelector('.q-error');
+        shuffle(labels).forEach(l => card.insertBefore(l, anchor));
+    }
+}
+
+// ---- build pages -------------------------------------------------------------
+const pageNumbers = [...new Set(QUESTIONS.map(q => q.page || 1))].sort((a, b) => a - b);
+const sections = [];
+pageNumbers.forEach(p => {
+    const section = document.createElement('div');
+    section.className = 'page-section';
+    orderForPage(QUESTIONS.filter(q => (q.page || 1) === p)).forEach(q => {
+        const card = cardByQid[q.id];
+        if (q.randomize_options) shuffleOptions(card, q);
+        section.appendChild(card);
+    });
+    form.insertBefore(section, navCard);
+    sections.push(section);
+});
+// Renumber questions to match the final on-screen order.
+let num = 1;
+form.querySelectorAll('.question .q-num').forEach(span => { span.textContent = num++; });
+
+// ---- skip logic (mirrors builder.condition_met server-side) ------------------
+function asNumber(x) {
+    if (typeof x === 'number') return x;
+    const s = String(x).trim();
+    if (s === '') return NaN;
+    return Number(s);
+}
+
+function valuesEqual(a, b) {
+    if (Array.isArray(a)) return a.some(x => valuesEqual(x, b));
+    const fa = asNumber(a), fb = asNumber(b);
+    if (!isNaN(fa) && !isNaN(fb)) return fa === fb;
+    return String(a).trim() === String(b).trim();
+}
+
+function conditionMet(cond, answers) {
+    const ref = answers[cond.question];
+    if (ref === undefined || ref === null || ref === '' || (Array.isArray(ref) && !ref.length)) return false;
+    const value = cond.value;
+    if (cond.op === 'equals') return valuesEqual(ref, value);
+    if (cond.op === 'not_equals') return !valuesEqual(ref, value);
+    if (cond.op === 'in') {
+        const accepted = Array.isArray(value) ? value : [value];
+        return accepted.some(v => valuesEqual(ref, v));
+    }
+    if (cond.op === 'gte' || cond.op === 'lte') {
+        const r = asNumber(ref), v = asNumber(value);
+        if (isNaN(r) || isNaN(v)) return false;
+        return cond.op === 'gte' ? r >= v : r <= v;
+    }
+    return false;
+}
+
+function clearCard(card) {
+    card.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(i => { i.checked = false; });
+    card.querySelectorAll('textarea, input[type="number"]').forEach(i => { i.value = ''; });
+    card.querySelectorAll('select').forEach(s => { s.value = ''; });
+    card.querySelector('.q-error').style.display = 'none';
+    card.style.borderColor = '';
+}
+
+// Forward pass in original question order: a question is visible when its
+// show_if matches the answers of visible earlier questions (chained hiding).
+function updateVisibility() {
+    const answers = {};
+    for (const q of QUESTIONS) {
+        const card = cardByQid[q.id];
+        const visible = !q.show_if || conditionMet(q.show_if, answers);
+        if (!visible) {
+            if (card.dataset.hidden !== '1') clearCard(card);
+            card.dataset.hidden = '1';
+            card.style.display = 'none';
+        } else {
+            card.dataset.hidden = '0';
+            card.style.display = '';
+            const v = collect(card);
+            if (v !== null) answers[q.id] = v;
+        }
+    }
+    return answers;
+}
+
+form.addEventListener('input', updateVisibility);
+form.addEventListener('change', updateVisibility);
+
+// ---- pagination ----------------------------------------------------------------
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const submitBtn = document.getElementById('submitBtn');
+const pageProgress = document.getElementById('pageProgress');
+let pageIdx = 0;
+
+function showPage(i) {
+    pageIdx = i;
+    sections.forEach((s, j) => { s.style.display = j === i ? '' : 'none'; });
+    if (sections.length > 1) {
+        document.getElementById('navRow').style.justifyContent = 'space-between';
+        pageProgress.style.display = '';
+        pageProgress.textContent = 'Page ' + (i + 1) + ' of ' + sections.length;
+        prevBtn.style.display = i > 0 ? '' : 'none';
+        nextBtn.style.display = i < sections.length - 1 ? '' : 'none';
+        submitBtn.style.display = i === sections.length - 1 ? '' : 'none';
+    }
+}
+
+function validateSection(section) {
+    let firstInvalid = null;
+    section.querySelectorAll('.question').forEach(card => {
+        if (card.dataset.hidden === '1') return; // logic-hidden: never required
+        const value = collect(card);
+        const required = card.dataset.required === '1';
+        let invalid = required && value === null;
+        if (card.dataset.qtype === 'matrix' && required && value !== null) {
+            invalid = Object.keys(value).length < Number(card.dataset.rows);
+        }
+        card.querySelector('.q-error').style.display = invalid ? 'block' : 'none';
+        card.style.borderColor = invalid ? 'var(--danger)' : '';
+        if (invalid && !firstInvalid) firstInvalid = card;
+    });
+    return firstInvalid;
+}
+
+prevBtn.addEventListener('click', () => { showPage(pageIdx - 1); window.scrollTo({ top: 0 }); });
+nextBtn.addEventListener('click', () => {
+    const formError = document.getElementById('formError');
+    const firstInvalid = validateSection(sections[pageIdx]);
+    if (firstInvalid) {
+        formError.textContent = 'Please answer all required questions on this page.';
+        formError.style.display = 'block';
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    formError.style.display = 'none';
+    showPage(pageIdx + 1);
+    window.scrollTo({ top: 0 });
+});
+
+updateVisibility();
+showPage(0);
+
+// ---- collection & submit -------------------------------------------------------
 function collect(card) {
     const type = card.dataset.qtype;
     if (type === 'likert' || type === 'numeric') {
@@ -160,28 +372,19 @@ function collect(card) {
 
 document.getElementById('surveyForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const answers = {};
-    let firstInvalid = null;
-
-    document.querySelectorAll('.question').forEach(card => {
-        const value = collect(card);
-        const required = card.dataset.required === '1';
-        let invalid = required && value === null;
-        if (card.dataset.qtype === 'matrix' && required && value !== null) {
-            invalid = Object.keys(value).length < Number(card.dataset.rows);
-        }
-        card.querySelector('.q-error').style.display = invalid ? 'block' : 'none';
-        card.style.borderColor = invalid ? 'var(--danger)' : '';
-        if (invalid && !firstInvalid) firstInvalid = card;
-        if (value !== null) answers[card.dataset.qid] = value;
-    });
-
     const formError = document.getElementById('formError');
-    if (firstInvalid) {
-        formError.textContent = 'Please answer all required questions.';
-        formError.style.display = 'block';
-        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
+    const answers = updateVisibility();   // visible questions only
+
+    // Validate every page; jump to the first one with a problem.
+    for (let i = 0; i < sections.length; i++) {
+        const firstInvalid = validateSection(sections[i]);
+        if (firstInvalid) {
+            if (i !== pageIdx) showPage(i);
+            formError.textContent = 'Please answer all required questions.';
+            formError.style.display = 'block';
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
     }
     formError.style.display = 'none';
 

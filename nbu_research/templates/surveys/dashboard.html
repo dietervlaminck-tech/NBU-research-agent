@@ -33,6 +33,18 @@
         </div>
     </div>
 
+    {% if study.config.scale_citations %}
+    <div class="card">
+        <h3>Validated Instruments</h3>
+        <p class="muted" style="font-size:13px;">Cite these instruments in your methods section.</p>
+        <ul style="margin-left:20px;">
+            {% for key, citation in study.config.scale_citations.items() %}
+            <li style="margin-bottom:6px;">{{ citation }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
     <h3 class="section-title">Per-Question Summaries</h3>
     {% if not questions %}
     <div class="empty-state">

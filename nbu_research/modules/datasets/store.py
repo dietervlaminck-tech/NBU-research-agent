@@ -65,16 +65,21 @@ def _infer_kind(series):
 
 
 def from_dataframe(project_id, name, df, source="upload", source_meta=None,
-                   description=""):
+                   description="", labels=None):
     """Infer the column spec from a pandas DataFrame, store as a dataset row,
-    return the new dataset id."""
+    return the new dataset id.
+
+    `labels` (optional, backward-compatible) maps original column names to
+    human-readable labels for the column spec — e.g. Qualtrics question text.
+    Columns missing from the map keep the original name as label."""
     df = df.copy()
     ids = _unique_ids([str(c) for c in df.columns])
     columns = []
     new_data = {}
     for cid, orig in zip(ids, df.columns):
         kind, series = _infer_kind(df[orig])
-        columns.append({"id": cid, "label": str(orig), "kind": kind})
+        label = (labels or {}).get(str(orig)) or str(orig)
+        columns.append({"id": cid, "label": label, "kind": kind})
         new_data[cid] = series.reset_index(drop=True)
 
     # Rebuild with sanitized ids so the CSV header matches the column ids.
