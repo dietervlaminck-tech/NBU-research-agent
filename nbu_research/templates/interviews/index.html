@@ -7,12 +7,62 @@
         <p>Create AI-powered qualitative research interviews that adapt to your respondents</p>
     </div>
 
+    <div class="card" style="border-left:4px solid var(--nyenrode-accent, #FBBA20);">
+        <h2>⚡ Run a simulation</h2>
+        <p class="muted">Type a research question and a number of respondents. The
+        agent invents a diverse set of personas, interviews each one, and (optionally)
+        runs the thematic analysis — a complete qualitative study in minutes.
+        <strong>Simulated data is clearly labelled as synthetic.</strong></p>
+        <form action="{{ url_for('interviews.simulate') }}" method="POST">
+            <input type="hidden" name="project_id" value="{{ project_id }}">
+            <div class="form-group">
+                <label>Research question *</label>
+                <input type="text" name="research_question" required
+                    placeholder="e.g. How do university lecturers experience and adopt AI tools in their teaching?">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Number of respondents (1–{{ max_n }})</label>
+                    <input type="number" name="n" value="6" min="1" max="{{ max_n }}">
+                </div>
+                <div class="form-group">
+                    <label>Interviewer model</label>
+                    <select name="model">
+                        {% for mid, mlabel in available_models %}
+                        <option value="{{ mid }}" {% if mid == default_model %}selected{% endif %}>{{ mlabel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <details class="mb-8">
+                <summary class="muted" style="cursor:pointer;">Optional: steer the personas or interview guide</summary>
+                <div class="form-group mt-8">
+                    <label>Who should be represented? (optional)</label>
+                    <input type="text" name="persona_guidance"
+                        placeholder="e.g. mix of junior and senior staff, sceptics and enthusiasts">
+                </div>
+                <div class="form-group">
+                    <label>Interview guide (optional — auto-generated from the question if blank)</label>
+                    <textarea name="outline" rows="3" placeholder="Leave blank to let the agent design it."></textarea>
+                </div>
+            </details>
+            <label style="font-weight:normal;">
+                <input type="checkbox" name="auto_analyze" checked>
+                Run thematic analysis automatically when the interviews finish
+            </label>
+            <div class="mt-16">
+                <button type="submit" class="btn btn-primary">Run simulation</button>
+            </div>
+        </form>
+    </div>
+
     {% if studies %}
     <div class="section-title">Your interview studies</div>
     {% for s in studies %}
     <div class="card flex-between">
         <div>
             <strong><a href="{{ url_for('interviews.dashboard', study_id=s.id) }}">{{ s.title }}</a></strong>
+            {% if s.config and s.config.simulated %}<span class="badge badge-pending">simulated</span>{% endif %}
             <div class="muted">{{ s.research_question }}</div>
             <div class="meta">Created {{ s.created_at[:16].replace('T', ' ') }} UTC</div>
         </div>

@@ -122,6 +122,18 @@ preregistration packages (zip verified live; API push mock-verified).
 175 tests. Connector API paths beyond enrichment are mock-verified until real
 accounts are connected.
 
+### June 12 — v0.2.1: interview simulation (demo centrepiece)
+
+`interviews/simulation.py` + a "Run simulation" card on the interviews index:
+research question + N (≤20) → auto-generated diverse personas → full adaptive
+interviews (the real bot interviews a Haiku-played persona) → sessions stored
+flagged `config.simulated` → optional auto-chain into thematic analysis, landing
+on the report. Turns the manually-faked slide simulation into a one-button live
+feature. 178 tests. Verified live: "How do PhD students experience AI tools in
+their research workflow?" × 3 → diverse personas (comp-bio / sociology / env-eng),
+16-turn interviews, 33-code / 89-segment thematic report that self-labels as
+simulated in its methods note.
+
 ## Incidents & lessons (read these before touching anything)
 
 1. **`rm -rf data` destroyed the live database (June 11).** A compile check

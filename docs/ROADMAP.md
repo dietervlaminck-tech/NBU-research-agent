@@ -19,6 +19,14 @@
   method / analysis / power checks) on the project hub; advisory only,
   stored on the project
 
+## v0.2.1 — interview simulation (June 12, 2026)
+
+- [x] **Run simulation**: from a research question + N, the agent auto-generates
+  N diverse personas, runs a full adaptive interview with each, stores them as a
+  normal (clearly synthetic-flagged) interview study, and optionally chains
+  straight into thematic analysis. The live-demo centrepiece. Verified live:
+  3 PhD-student personas → 16-turn interviews → 33-code thematic report.
+
 ## Stakeholder track (M. Erkens, June 2026 — target: June 22)
 
 - [x] **Phase 1 (June 11):** Stata (.dta), R (.rds), Jupyter notebook exports;

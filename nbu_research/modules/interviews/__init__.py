@@ -9,9 +9,11 @@ from flask import (
 
 from ... import db
 from ...auth import check_project_role
-from ...config import DEFAULT_INTERVIEW_MODEL
+from ...config import DEFAULT_INTERVIEW_MODEL, AVAILABLE_MODELS
+from ...jobs import get_job
 from .bot import DEFAULT_GENERAL_INSTRUCTIONS, FIRST_USER_MESSAGE, stream_interview_reply
 from .transcripts import extract_text, parse_transcript
+from . import simulation
 
 TRANSCRIPT_EXTENSIONS = {".txt", ".docx"}
 
@@ -41,8 +43,61 @@ def index():
         studies=studies,
         default_instructions=DEFAULT_GENERAL_INSTRUCTIONS,
         default_model=DEFAULT_INTERVIEW_MODEL,
+        available_models=AVAILABLE_MODELS,
+        projects=db.query("projects"),
+        max_n=simulation.MAX_N,
         project_id=request.args.get("project", ""),
     )
+
+
+@bp.route("/simulate", methods=["POST"])
+def simulate():
+    """Launch a simulated qualitative study (auto personas + interviews, then
+    optional thematic analysis). The live-demo button."""
+    research_question = request.form.get("research_question", "").strip()
+    if not research_question:
+        return redirect(url_for("interviews.index"))
+    try:
+        n = int(request.form.get("n", "4"))
+    except ValueError:
+        n = 4
+    project_id = request.form.get("project_id", "").strip() or None
+    if project_id:
+        check_project_role(project_id, "collaborator")
+    job_id = simulation.start_simulation(
+        research_question=research_question,
+        n=n,
+        outline=request.form.get("outline", "").strip() or None,
+        persona_guidance=request.form.get("persona_guidance", "").strip() or None,
+        project_id=project_id,
+        model=request.form.get("model") or DEFAULT_INTERVIEW_MODEL,
+        language=request.form.get("language", "").strip() or None,
+        auto_analyze=request.form.get("auto_analyze", "on") == "on",
+    )
+    return redirect(url_for("interviews.simulation_progress", job_id=job_id))
+
+
+@bp.route("/simulation/<job_id>")
+def simulation_progress(job_id):
+    job = get_job(job_id)
+    if not job:
+        return "Job not found", 404
+    return render_template("interviews/simulation_job.html", job=job)
+
+
+@bp.route("/simulation/<job_id>/done")
+def simulation_done(job_id):
+    """Redirect target once a simulation finishes: the thematic report if it
+    auto-analyzed, otherwise the new study's dashboard."""
+    job = get_job(job_id)
+    if not job or job.get("status") != "done":
+        return redirect(url_for("interviews.simulation_progress", job_id=job_id))
+    result = job.get("result") or {}
+    if result.get("analysis_id"):
+        return redirect(f"/analysis/result/{result['analysis_id']}")
+    if result.get("study_id"):
+        return redirect(url_for("interviews.dashboard", study_id=result["study_id"]))
+    return redirect(url_for("interviews.index"))
 
 
 @bp.route("/create", methods=["POST"])

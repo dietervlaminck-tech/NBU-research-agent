@@ -89,7 +89,11 @@ Cross-cutting (v0.1.1): `auth.py` (Entra ID SSO + per-project roles —
 `worker.py` (Celery app; jobs registered via `@jobs.job(kind)` with
 JSON-serializable payloads), `ai_usage_log` (written centrally by `llm.py`,
 feeds the per-article AI disclosure), `prompts/methods_advisor.py`
-(pre-study design review on the project hub).
+(pre-study design review on the project hub). `interviews/simulation.py`
+(v0.2.1): a "Run simulation" job — research question + N → auto personas →
+adaptive interviews (interviewer = study model, persona = Haiku) → optional
+thematic analysis; sessions flagged `config.simulated`. Imports
+analysis.qualitative to chain (sanctioned one-way call).
 
 ## Conventions that bite if missed
 
