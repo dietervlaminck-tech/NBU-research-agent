@@ -13,9 +13,17 @@ import os
 
 from ... import db
 from ...jobs import job, update_progress
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from ...config import MODEL_SONNET
 from ...llm import complete, complete_json, research
 
-DEPTH_SEARCHES = {"quick": 5, "standard": 10, "deep": 15}
+# Per-angle retrieval favours speed (Sonnet); final synthesis uses the default
+# pipeline model (Opus). Web-search retrieval doesn't need Opus-level reasoning.
+RESEARCH_MODEL = MODEL_SONNET
+
+DEPTH_SEARCHES = {"quick": 3, "standard": 5, "deep": 8}
 
 PROMPTS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -144,17 +152,15 @@ def _run(review, job_id):
     angles = decomposition["angles"][:6]
 
     # --- Phase 2: web-search-grounded research per angle -----------------------
+    # Angles are independent, so research them CONCURRENTLY (each call is a
+    # multi-minute web-search round trip — running 6 sequentially was the main
+    # cause of 30-50 min reviews). Retrieval runs on Sonnet for speed; the
+    # final synthesis (Phase 4) stays on the default pipeline model.
     research_system = load_prompt("literature_review", DEFAULT_RESEARCH_SYSTEM)
-    angle_notes = []
-    all_citations = []
     n = len(angles)
-    for i, angle in enumerate(angles):
-        update_progress(
-            job_id,
-            0.2 + 0.5 * i / n,
-            f"Researching angle {i + 1}/{n}: {angle['title']}",
-        )
-        text, citations = research(
+
+    def _research_angle(angle):
+        return research(
             system=research_system,
             prompt=(
                 f"Overall research question of the review:\n{question}\n\n"
@@ -164,10 +170,34 @@ def _run(review, job_id):
                 f"Rationale: {angle['rationale']}\n\n"
                 "Research this angle and produce your structured research notes."
             ),
+            model=RESEARCH_MODEL,
             max_searches=max_searches,
         )
-        angle_notes.append({"angle": angle, "text": text, "citations": citations})
-        for c in citations:
+
+    update_progress(job_id, 0.2, f"Researching {n} angles in parallel…")
+    angle_notes = [None] * n
+    done = {"count": 0}
+    lock = threading.Lock()
+    with ThreadPoolExecutor(max_workers=min(n, 5)) as pool:
+        futures = {pool.submit(_research_angle, angle): i
+                   for i, angle in enumerate(angles)}
+        for fut in as_completed(futures):
+            i = futures[fut]
+            try:
+                text, citations = fut.result()
+            except Exception as e:  # one angle failing must not kill the review
+                text, citations = f"(Angle research failed: {e})", []
+            angle_notes[i] = {"angle": angles[i], "text": text, "citations": citations}
+            with lock:
+                done["count"] += 1
+                update_progress(
+                    job_id, 0.2 + 0.5 * done["count"] / n,
+                    f"Researched {done['count']}/{n} angles "
+                    f"(latest: {angles[i]['title']})")
+
+    all_citations = []
+    for an in angle_notes:
+        for c in an["citations"]:
             if c["url"] not in [x["url"] for x in all_citations]:
                 all_citations.append(c)
 

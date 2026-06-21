@@ -17,9 +17,13 @@ def new_id(length=12):
 
 def get_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    # timeout: wait up to 10s for a write lock instead of failing immediately —
+    # background jobs (esp. the parallel literature angles) write from several
+    # threads at once, plus the UI polls; WAL + busy_timeout lets these coexist.
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
