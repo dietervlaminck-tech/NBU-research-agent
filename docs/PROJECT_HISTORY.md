@@ -134,6 +134,17 @@ their research workflow?" × 3 → diverse personas (comp-bio / sociology / env-
 16-turn interviews, 33-code / 89-segment thematic report that self-labels as
 simulated in its methods note.
 
+### July 11 — faculty-tailored forward roadmap
+
+`docs/ROADMAP_FACULTY.md`: v0.4 hardening (deploy/CI, CSRF, backups, encrypted
+credentials, AI **cost dashboard** — motivated by the July 9 credit-exhaustion
+failure — Dutch UI, human-in-the-loop coding verification) then discipline
+tracks mapped to Nyenrode's five expertise centers: v0.5 Audit & Reporting
+(MUS/attribute/Benford sampling module, ESEF/XBRL Europe connector), v0.6
+Governance & ESG (NL code compliance scan, CSRD/ESRS gap analysis), v0.7
+Behavioral (survey waves, experiments, scale expansion). Champion-per-center
+model; execution planned in follow-up sessions.
+
 ## Incidents & lessons (read these before touching anything)
 
 1. **`rm -rf data` destroyed the live database (June 11).** A compile check

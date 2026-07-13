@@ -90,12 +90,20 @@ Zotero/Qualtrics/OSF keys at Settings → Connections after Entra login.
 - [x] OSF: preregistration package (.zip — verified live) + push to an OSF
   project via personal token (mock-verified)
 
-## v0.4 — scale & compliance
-*(Researcher accounts, per-project access, the AI audit trail, and the durable
-task queue originally planned here shipped early in v0.1.1.)*
-- [ ] Postgres migration (replace SQLite) if multi-user load requires it —
-  the Celery/Redis queue is already in place
-- [ ] GDPR tooling: respondent consent records, data retention policies, anonymization pass over transcripts
+## v0.4 and beyond — see [ROADMAP_FACULTY.md](ROADMAP_FACULTY.md)
+
+The forward roadmap is now organized around Nyenrode's five expertise centers
+and two institutes, with a champion-per-center working model:
+
+- **v0.4 — Foundation & hardening**: Azure deploy + CI, CSRF, backups,
+  encrypted per-user credentials, AI cost dashboard, Dutch UI,
+  human-in-the-loop coding verification (+ conditional Postgres, GDPR tooling)
+- **v0.5 — Audit & Reporting track**: audit sampling analytics (MUS,
+  attribute, Benford), ESEF/XBRL Europe connector, batch report-text analysis
+- **v0.6 — Governance & ESG track**: NL governance-code compliance scan,
+  CSRD/ESRS gap analysis, board interview templates
+- **v0.7 — Behavioral track**: longitudinal survey waves, experimental
+  blocks, scale-library expansion (incl. psychological ownership)
 
 ## Continuous
 - Keep model ids current; re-tune prompt packs against new Claude releases
